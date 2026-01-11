@@ -1,4 +1,4 @@
-# UNIQMQ - Dashboard
+# UNIMQ - Dashboard
 Simple IoT Dashboard for MQTT
 
 
