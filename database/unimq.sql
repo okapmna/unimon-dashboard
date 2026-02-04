@@ -44,7 +44,7 @@ CREATE TABLE `device` (
 
 INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_type`, `user_id`, `device_name`, `broker_port`) VALUES
 (14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 11, 'Inkubator Ternak 1', '8080'),
-(19, '1118e8175bef4f45b3d76681ba47bf64.s1.eu.hivemq.cloud', '54321Jan', 'iwasabird', 'esp32-inkubator', 11, 'Inkubator burung', '8884');
+(19, '000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'cihuyyy', 'esp32-inkubator', 11, 'Inkubator burung', '8884');
 
 -- --------------------------------------------------------
 
