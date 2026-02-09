@@ -195,8 +195,15 @@ $topic_pub   = "incubator/" . $device_id . "/con";
             try {
                 const data = JSON.parse(message.payloadString);
                 
-                if (data.temperature !== undefined) document.getElementById("suhu").innerText = data.temperature;
-                if (data.humidity !== undefined) document.getElementById("kelembapan").innerText = data.humidity;
+                // --- PERUBAHAN DI SINI ---
+                // Menggunakan parseFloat() dan .toFixed(2) untuk memformat angka
+                if (data.temperature !== undefined) {
+                    document.getElementById("suhu").innerText = parseFloat(data.temperature).toFixed(2);
+                }
+                if (data.humidity !== undefined) {
+                    document.getElementById("kelembapan").innerText = parseFloat(data.humidity).toFixed(2);
+                }
+                // -------------------------
 
                 // Sinkronisasi Target dari Alat
                 if (data.target_temp !== undefined || data.t_temp !== undefined) {
