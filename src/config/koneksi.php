@@ -1,7 +1,7 @@
 <?php
-$host = "localhost";
-$user = "root";
-$pass = ""; // default XAMPP kosong
+$host = "db";
+$user = "user_app";
+$pass = "password_app"; // default XAMPP kosong
 $db   = "unimq";
 
 $koneksi = mysqli_connect($host, $user, $pass, $db);
