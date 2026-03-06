@@ -6,7 +6,7 @@
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#FFF8EC",
   "icons": [
     {
       "src": "assets/images/unimon-logo.png",
