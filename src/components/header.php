@@ -13,7 +13,7 @@ $body_class = $body_class ?? 'font-sans min-h-screen flex items-center justify-c
     
     <!-- PWA -->
     <link rel="manifest" href="<?= $base_url ?>manifest.json">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#FFF8EC">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Unimon">
