@@ -41,7 +41,7 @@ $body_class = 'p-6 md:p-12 min-h-screen flex flex-col font-sans text-gray-800';
 $base_url = '../../';
 ob_start();
 ?>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
         const mqttConfig = {
@@ -207,68 +207,67 @@ include "../../components/header.php";
         let currentTargetTemp = 37.5;
         let currentTargetHum = 55;
 
-        const clientID = "web_client_" + Math.random().toString(16).substr(2, 8);
-        const client = new Paho.MQTT.Client(mqttConfig.host, Number(mqttConfig.port), clientID);
-
-        function connect() {
-            updateStatus("Connecting...", "text-orange-600");
-            client.connect({
-                useSSL: mqttConfig.useSSL,
-                userName: mqttConfig.username,
-                password: mqttConfig.password,
-                onSuccess: onConnect,
-                onFailure: (e) => { console.log(e); setTimeout(connect, 5000); },
-                keepAliveInterval: 30
-            });
-        }
-
-        function onConnect() {
-            updateStatus("Connected (Online)", "text-green-600");
-            client.subscribe(mqttConfig.topics.subscribe);
-            
-            // Request data awal dari ESP32
-            const msg = new Paho.MQTT.Message("dev_getinfo");
-            msg.destinationName = mqttConfig.topics.publish;
-            client.send(msg);
-        }
-
-        client.onConnectionLost = (res) => {
-            updateStatus("Disconnected!", "text-red-600");
-            setTimeout(connect, 3000);
+        // --- MQTT.js CONNECTION ---
+        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
+        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
+        const clientOptions = {
+            clientId: 'web_incubator_' + Math.random().toString(16).substr(2, 8),
+            username: mqttConfig.username,
+            password: mqttConfig.password,
+            reconnectPeriod: 3000,
+            keepalive: 30,
+            clean: true
         };
 
-        client.onMessageArrived = (message) => {
+        const client = mqtt.connect(brokerUrl, clientOptions);
+
+        client.on('connect', () => {
+            updateStatus('Connected (Online)', 'text-green-600');
+            client.subscribe(mqttConfig.topics.subscribe);
+            // Request data awal dari ESP32
+            client.publish(mqttConfig.topics.publish, 'dev_getinfo');
+        });
+
+        client.on('reconnect', () => {
+            updateStatus('Reconnecting...', 'text-orange-500');
+        });
+
+        client.on('close', () => {
+            updateStatus('Disconnected!', 'text-red-600');
+        });
+
+        client.on('error', (err) => {
+            updateStatus('Connection Error', 'text-red-600');
+            console.error('MQTT Error:', err);
+        });
+
+        client.on('message', (topic, message) => {
             try {
-                const data = JSON.parse(message.payloadString);
-                
-                // --- PERUBAHAN DI SINI ---
-                // Menggunakan parseFloat() dan .toFixed(2) untuk memformat angka
+                const data = JSON.parse(message.toString());
+
                 if (data.temperature !== undefined) {
-                    document.getElementById("suhu").innerText = parseFloat(data.temperature).toFixed(2);
+                    document.getElementById('suhu').innerText = parseFloat(data.temperature).toFixed(2);
                 }
                 if (data.humidity !== undefined) {
-                    document.getElementById("kelembapan").innerText = parseFloat(data.humidity).toFixed(2);
+                    document.getElementById('kelembapan').innerText = parseFloat(data.humidity).toFixed(2);
                 }
-                // -------------------------
-
-                // Sinkronisasi Target dari Alat
                 if (data.target_temp !== undefined || data.t_temp !== undefined) {
                     currentTargetTemp = parseFloat(data.target_temp || data.t_temp);
-                    document.getElementById("target-temp").innerText = currentTargetTemp.toFixed(1) + " °C";
+                    document.getElementById('target-temp').innerText = currentTargetTemp.toFixed(1) + ' °C';
                 }
                 if (data.target_hum !== undefined || data.t_hum !== undefined) {
                     currentTargetHum = parseFloat(data.target_hum || data.t_hum);
-                    document.getElementById("target-hum").innerText = Math.round(currentTargetHum) + "%";
+                    document.getElementById('target-hum').innerText = Math.round(currentTargetHum) + '%';
                 }
-            } catch (e) { console.warn("Parsing Error:", e); }
-        };
+            } catch (e) { console.warn('Parsing Error:', e); }
+        });
 
         function updateTarget(type, change) {
             if (type === 'temp') currentTargetTemp = parseFloat((currentTargetTemp + change).toFixed(1));
             else currentTargetHum = currentTargetHum + change;
-            
-            document.getElementById('target-temp').innerText = currentTargetTemp.toFixed(1) + " °C";
-            document.getElementById('target-hum').innerText = Math.round(currentTargetHum) + "%";
+
+            document.getElementById('target-temp').innerText = currentTargetTemp.toFixed(1) + ' °C';
+            document.getElementById('target-hum').innerText = Math.round(currentTargetHum) + '%';
             sendTargetData();
         }
 
@@ -277,8 +276,8 @@ include "../../components/header.php";
             if (settings) {
                 currentTargetTemp = settings.temp;
                 currentTargetHum = settings.hum;
-                document.getElementById('target-temp').innerText = currentTargetTemp + " °C";
-                document.getElementById('target-hum').innerText = currentTargetHum + "%";
+                document.getElementById('target-temp').innerText = currentTargetTemp + ' °C';
+                document.getElementById('target-hum').innerText = currentTargetHum + '%';
                 document.getElementById('info-optimal-temp').innerText = settings.infoTemp;
                 document.getElementById('info-optimal-hum').innerText = settings.infoHum;
                 sendTargetData();
@@ -286,18 +285,16 @@ include "../../components/header.php";
         }
 
         function sendTargetData() {
-            if (client.isConnected()) {
+            if (client.connected) {
                 const payload = JSON.stringify({ target_temp: currentTargetTemp, target_hum: currentTargetHum });
-                const msg = new Paho.MQTT.Message(payload);
-                msg.destinationName = mqttConfig.topics.publish;
-                client.send(msg);
+                client.publish(mqttConfig.topics.publish, payload);
             }
         }
 
         function updateStatus(text, colorClass) {
-            const s = document.getElementById("status");
-            s.innerText = "Status: " + text;
-            s.className = "mt-2 text-sm font-medium " + colorClass;
+            const s = document.getElementById('status');
+            s.innerText = 'Status: ' + text;
+            s.className = 'mt-2 text-sm font-medium ' + colorClass;
         }
 
         // Custom batch dropdown logic
@@ -311,20 +308,14 @@ include "../../components/header.php";
         }
 
         function selectBatch(value, label) {
-            // Update label
             document.getElementById('batch-dropdown-label').textContent = label;
-            // Update active state on items
             document.querySelectorAll('#batch-dropdown-menu button').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-            // Sync with native select and trigger changeBatchType
             const sel = document.getElementById('batch-select');
             sel.value = value;
             changeBatchType();
-            // Close menu
-            const menu = document.getElementById('batch-dropdown-menu');
-            const arrow = document.getElementById('batch-dropdown-arrow');
-            menu.classList.remove('open');
-            arrow.style.transform = '';
+            document.getElementById('batch-dropdown-menu').classList.remove('open');
+            document.getElementById('batch-dropdown-arrow').style.transform = '';
         }
 
         document.addEventListener('click', function(e) {
@@ -334,7 +325,5 @@ include "../../components/header.php";
                 document.getElementById('batch-dropdown-arrow').style.transform = '';
             }
         });
-
-        connect();
     </script>
 <?php include "../../components/footer.php"; ?>

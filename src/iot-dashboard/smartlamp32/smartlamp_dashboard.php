@@ -45,7 +45,7 @@ $body_class = 'p-6 sm:p-12 md:p-24 min-h-screen font-sans text-gray-900';
 $base_url = '../../';
 ob_start();
 ?>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
         const mqttConfig = {
@@ -156,38 +156,50 @@ include "../../components/header.php";
         const dateElement = document.getElementById('date-display');
         dateElement.innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-        let currentPower = "OFF";
+        let currentPower = 'OFF';
         let currentBrightness = 0;
 
-        // --- MQTT LOGIC ---
-        const clientID = "web_lamp_" + new Date().getTime();
-        let client = new Paho.MQTT.Client(mqttConfig.host, Number(mqttConfig.port), clientID);
-
-        function connect() {
-            client.connect({
-                useSSL: mqttConfig.useSSL,
-                userName: mqttConfig.username,
-                password: mqttConfig.password,
-                onSuccess: () => {
-                    document.getElementById("status").innerText = "Status: Connected (Online)";
-                    document.getElementById("status").className = "mt-4 text-sm font-bold text-green-500 uppercase tracking-widest";
-                    client.subscribe(mqttConfig.topics.subscribe.status);
-                },
-                onFailure: (e) => {
-                    document.getElementById("status").innerText = "Status: Connection Failed";
-                    document.getElementById("status").className = "mt-4 text-sm font-bold text-red-500 uppercase tracking-widest";
-                    setTimeout(connect, 5000);
-                }
-            });
-        }
-
-        client.onMessageArrived = (message) => {
-            try {
-                const data = JSON.parse(message.payloadString);
-                if(data.power) updatePowerUI(data.power);
-                if(data.brightness !== undefined) updateBrightnessUI(data.brightness);
-            } catch(e) { console.error("Data error", e); }
+        // --- MQTT.js CONNECTION ---
+        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
+        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
+        const clientOptions = {
+            clientId: 'web_lamp_' + Math.random().toString(16).substr(2, 8),
+            username: mqttConfig.username,
+            password: mqttConfig.password,
+            reconnectPeriod: 3000,
+            keepalive: 30,
+            clean: true
         };
+
+        const client = mqtt.connect(brokerUrl, clientOptions);
+
+        client.on('connect', () => {
+            document.getElementById('status').innerText = 'Status: Connected (Online)';
+            document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-green-500 uppercase tracking-tighter sm:tracking-widest';
+            client.subscribe(mqttConfig.topics.subscribe.status);
+        });
+
+        client.on('reconnect', () => {
+            document.getElementById('status').innerText = 'Status: Reconnecting...';
+            document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-orange-500 uppercase tracking-tighter sm:tracking-widest';
+        });
+
+        client.on('close', () => {
+            document.getElementById('status').innerText = 'Status: Disconnected!';
+            document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-red-500 uppercase tracking-tighter sm:tracking-widest';
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT Error:', err);
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                if (data.power) updatePowerUI(data.power);
+                if (data.brightness !== undefined) updateBrightnessUI(data.brightness);
+            } catch(e) { console.error('Data error', e); }
+        });
 
         // --- UI & CONTROL LOGIC ---
         function updatePowerUI(status) {
@@ -197,27 +209,27 @@ include "../../components/header.php";
             const btn = document.getElementById('power-btn');
             const label = document.getElementById('switch-label');
 
-            if(status === "ON") {
-                display.innerText = "ON";
+            if (status === 'ON') {
+                display.innerText = 'ON';
                 display.classList.replace('text-gray-300', 'text-lamp-yellow');
                 indicator.classList.replace('bg-gray-300', 'bg-lamp-yellow');
                 btn.classList.replace('bg-gray-200', 'bg-red-500');
                 btn.classList.replace('text-gray-600', 'text-white');
-                btn.innerText = "-";
-                label.innerText = "Turn Off";
+                btn.innerText = '-';
+                label.innerText = 'Turn Off';
             } else {
-                display.innerText = "OFF";
+                display.innerText = 'OFF';
                 display.classList.replace('text-lamp-yellow', 'text-gray-300');
                 indicator.classList.replace('bg-lamp-yellow', 'bg-gray-300');
                 btn.classList.replace('bg-red-500', 'bg-gray-200');
                 btn.classList.replace('text-white', 'text-gray-600');
-                btn.innerText = "+";
-                label.innerText = "Turn On";
+                btn.innerText = '+';
+                label.innerText = 'Turn On';
             }
         }
 
         function togglePower() {
-            currentPower = (currentPower === "OFF") ? "ON" : "OFF";
+            currentPower = (currentPower === 'OFF') ? 'ON' : 'OFF';
             updatePowerUI(currentPower);
             sendControl();
         }
@@ -240,17 +252,13 @@ include "../../components/header.php";
         }
 
         function sendControl() {
-            if (client.isConnected()) {
-                const payload = JSON.stringify({ 
-                    power: currentPower, 
-                    brightness: parseInt(currentBrightness) 
+            if (client.connected) {
+                const payload = JSON.stringify({
+                    power: currentPower,
+                    brightness: parseInt(currentBrightness)
                 });
-                const message = new Paho.MQTT.Message(payload);
-                message.destinationName = mqttConfig.topics.publish.control;
-                client.send(message);
+                client.publish(mqttConfig.topics.publish.control, payload);
             }
         }
-
-        connect();
     </script>
 <?php include "../../components/footer.php"; ?>
