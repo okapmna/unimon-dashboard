@@ -102,7 +102,7 @@ include "../../components/header.php";
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12">
-            <div class="bg-white rounded-3xl sm:rounded-[40px] p-8 sm:p-12 shadow-[10px_10px_30px_rgba(0,0,0,0.05)] sm:shadow-[20px_20px_40px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between min-h-[300px] sm:min-h-[400px]">
+            <div class="bg-white rounded-3xl sm:rounded-[40px] p-8 sm:p-12 shadow-[10px_10px_30px_rgba(0,0,0,0.05)] sm:shadow-[20px_20px_40px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between min-h-[300px] sm:min-h-[400px] hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
                 <div class="flex items-center gap-3">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     <h2 class="text-lg font-bold tracking-tight uppercase">POWER</h2>
@@ -124,7 +124,7 @@ include "../../components/header.php";
                 </div>
             </div>
 
-            <div class="bg-white rounded-3xl sm:rounded-[40px] p-8 sm:p-12 shadow-[10px_10px_30px_rgba(0,0,0,0.05)] sm:shadow-[20px_20px_40px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between min-h-[300px] sm:min-h-[400px]">
+            <div class="bg-white rounded-3xl sm:rounded-[40px] p-8 sm:p-12 shadow-[10px_10px_30px_rgba(0,0,0,0.05)] sm:shadow-[20px_20px_40px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between min-h-[300px] sm:min-h-[400px] hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
                 <div class="flex items-center gap-2 sm:gap-3">
                     <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 00-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 00-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
                     <h2 class="text-base sm:text-lg font-bold tracking-tight uppercase">BRIGHTNESS</h2>
