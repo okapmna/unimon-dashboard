@@ -37,7 +37,7 @@ $topic_pub   = "incubator/" . $device_id . "/con";
 
 <?php
 $page_title = htmlspecialchars($device_data['device_name']) . ' - Control';
-$body_class = 'p-8 md:p-12 min-h-screen flex flex-col font-sans text-gray-800';
+$body_class = 'p-6 md:p-12 min-h-screen flex flex-col font-sans text-gray-800';
 $base_url = '../../';
 ob_start();
 ?>
@@ -64,8 +64,53 @@ ob_start();
     </script>
 
     <style>
-        .back-btn { position: fixed; top: 20px; left: 20px; z-index: 50; }
+        .back-btn { position: fixed; top: 12px; left: 12px; z-index: 50; }
+        @media (min-width: 640px) { .back-btn { top: 20px; left: 20px; } }
         .back-btn a { display: flex; align-items: center; gap: 8px; background: #fff; padding: 10px 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.3s; }
+        .back-btn a span { display: none; }
+        @media (min-width: 640px) { .back-btn a span { display: inline; } }
+
+        /* Custom Batch Dropdown */
+        .batch-dropdown { position: relative; }
+        .batch-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            min-width: 100%;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            overflow: hidden;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(-8px) scale(0.97);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .batch-dropdown-menu.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .batch-dropdown-menu button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 18px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #333;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            white-space: nowrap;
+        }
+        .batch-dropdown-menu button:hover { background: #f3ede5; }
+        .batch-dropdown-menu button.active { background: #C69C6D; color: #fff; }
+        @media (min-width: 640px) {
+            .batch-dropdown-menu { left: auto; right: 0; }
+        }
     </style>
 <?php
 $extra_head = ob_get_clean();
@@ -79,65 +124,78 @@ include "../../components/header.php";
         </a>
     </div>
 
-    <div class="max-w-5xl mx-auto w-full">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 border-b border-gray-300 pb-8">
+    <div class="max-w-5xl mx-auto w-full mt-10 sm:mt-0">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 sm:mb-12 gap-4 sm:gap-6 border-b border-gray-300 pb-4 sm:pb-8">
             <div>
-                <p class="text-sm font-semibold tracking-wider text-gray-600 uppercase mb-1"><?= htmlspecialchars($device_data['device_name']) ?></p>
-                <h1 id="date-display" class="text-4xl md:text-5xl font-bold text-black">Loading...</h1>
-                <p id="status" class="mt-2 text-sm font-medium text-orange-600">Status: Connecting...</p>
+                <p class="text-xs sm:text-sm font-semibold tracking-wider text-gray-600 uppercase mb-1"><?= htmlspecialchars($device_data['device_name']) ?></p>
+                <h1 id="date-display" class="text-3xl sm:text-4xl md:text-5xl font-bold text-black">Loading...</h1>
+                <p id="status" class="mt-2 text-xs sm:text-sm font-medium text-orange-600">Status: Connecting...</p>
             </div>
-            <div class="flex flex-col items-end">
+            <div class="flex flex-col items-start md:items-end mt-2 md:mt-0">
                 <p class="text-xs font-bold uppercase mb-2">BATCH TYPE</p>
-                <select id="batch-select" onchange="changeBatchType()" class="bg-[#C69C6D] text-black font-semibold px-8 py-2 rounded-full shadow-sm text-sm outline-none border border-[#C69C6D]">
+                <!-- Hidden native select for changeBatchType() compatibility -->
+                <select id="batch-select" onchange="changeBatchType()" class="hidden">
                     <option value="chicken">Chicken (Ayam)</option>
                     <option value="duck">Duck (Bebek)</option>
                     <option value="quail">Quail (Puyuh)</option>
                 </select>
+                <!-- Custom Dropdown -->
+                <div class="batch-dropdown" id="batch-dropdown">
+                    <button onclick="toggleBatchDropdown(event)" id="batch-dropdown-btn" class="bg-[#C69C6D] text-black font-semibold px-5 py-2 rounded-full shadow-sm text-xs sm:text-sm flex items-center gap-2 hover:bg-[#b8885a] transition-colors duration-200">
+                        <span id="batch-dropdown-label">Chicken (Ayam)</span>
+                        <svg id="batch-dropdown-arrow" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="batch-dropdown-menu" id="batch-dropdown-menu">
+                        <button onclick="selectBatch('chicken', 'Chicken (Ayam)')" class="active">Chicken (Ayam)</button>
+                        <button onclick="selectBatch('duck', 'Duck (Bebek)')">Duck (Bebek)</button>
+                        <button onclick="selectBatch('quail', 'Quail (Puyuh)')">Quail (Puyuh)</button>
+                    </div>
+                </div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-            <div class="bg-white rounded-3xl p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white">
-                <div class="flex items-center gap-3 mb-6 font-bold uppercase tracking-wide">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v13.5m0 0a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"></path></svg>
-                    <h2>TEMPERATURE</h2>
+        <div class="grid grid-cols-2 gap-3 sm:gap-8 md:gap-12">
+            <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between">
+                <div class="flex items-center gap-1.5 sm:gap-3 mb-3 sm:mb-6 font-bold uppercase tracking-wide text-[11px] sm:text-base">
+                    <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v13.5m0 0a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"></path></svg>
+                    <h2>TEMP</h2>
                 </div>
-                <div class="text-[3.5rem] font-bold text-[#386628] mb-8 leading-none"><span id="suhu">--</span>°C</div>
-                <div class="border border-black rounded-xl p-4">
+                <div class="text-3xl sm:text-[3.5rem] font-bold text-[#386628] mb-3 sm:mb-8 leading-none"><span id="suhu">--</span>°C</div>
+                <div class="border border-black rounded-lg sm:rounded-xl p-2.5 sm:p-4">
                     <div class="flex justify-between items-center">
                         <div>
-                            <p class="text-[0.65rem] font-bold uppercase mb-1">TARGET</p>
-                            <p id="target-temp" class="text-xl font-bold">37.5 °C</p>
+                            <p class="text-[8px] sm:text-[0.65rem] font-bold uppercase mb-0.5 sm:mb-1">TARGET</p>
+                            <p id="target-temp" class="text-sm sm:text-xl font-bold">37.5 °C</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="updateTarget('temp', 0.1)" class="w-8 h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold">+</button>
-                            <button onclick="updateTarget('temp', -0.1)" class="w-8 h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold">-</button>
+                        <div class="flex gap-1.5 sm:gap-2">
+                            <button onclick="updateTarget('temp', -0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">-</button>
+                            <button onclick="updateTarget('temp', 0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">+</button>
                         </div>
                     </div>
-                    <div class="h-px bg-gray-200 my-2"></div>
-                    <p id="info-optimal-temp" class="text-[0.65rem] font-semibold">Optimal: 37.2°C - 37.8°C</p>
+                    <div class="h-px bg-gray-200 my-1.5 sm:my-2 hidden sm:block"></div>
+                    <p id="info-optimal-temp" class="text-[0.60rem] sm:text-[0.65rem] font-semibold hidden sm:block">Optimal: 37.2°C - 37.8°C</p>
                 </div>
             </div>
 
-            <div class="bg-white rounded-3xl p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white">
-                <div class="flex items-center gap-3 mb-6 font-bold uppercase tracking-wide">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25c-5.385 5.965-8.25 10.975-8.25 14.25a8.25 8.25 0 0016.5 0c0-3.275-2.865-8.285-8.25-14.25z" /></svg>
-                    <h2>HUMIDITY</h2>
+            <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between">
+                <div class="flex items-center gap-1.5 sm:gap-3 mb-3 sm:mb-6 font-bold uppercase tracking-wide text-[11px] sm:text-base">
+                    <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25c-5.385 5.965-8.25 10.975-8.25 14.25a8.25 8.25 0 0016.5 0c0-3.275-2.865-8.285-8.25-14.25z" /></svg>
+                    <h2>HUMID</h2>
                 </div>
-                <div class="text-[3.5rem] font-bold text-[#1E88E5] mb-8 leading-none"><span id="kelembapan">--</span>%</div>
-                <div class="border border-black rounded-xl p-4">
+                <div class="text-3xl sm:text-[3.5rem] font-bold text-[#1E88E5] mb-3 sm:mb-8 leading-none"><span id="kelembapan">--</span>%</div>
+                <div class="border border-black rounded-lg sm:rounded-xl p-2.5 sm:p-4">
                     <div class="flex justify-between items-center">
                         <div>
-                            <p class="text-[0.65rem] font-bold uppercase mb-1">TARGET</p>
-                            <p id="target-hum" class="text-xl font-bold">55%</p>
+                            <p class="text-[8px] sm:text-[0.65rem] font-bold uppercase mb-0.5 sm:mb-1">TARGET</p>
+                            <p id="target-hum" class="text-sm sm:text-xl font-bold">55%</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="updateTarget('hum', 1)" class="w-8 h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold">+</button>
-                            <button onclick="updateTarget('hum', -1)" class="w-8 h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold">-</button>
+                        <div class="flex gap-1.5 sm:gap-2">
+                            <button onclick="updateTarget('hum', -1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">-</button>
+                            <button onclick="updateTarget('hum', 1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">+</button>
                         </div>
                     </div>
-                    <div class="h-px bg-gray-200 my-2"></div>
-                    <p id="info-optimal-hum" class="text-[0.65rem] font-semibold">Optimal: 55%-60%</p>
+                    <div class="h-px bg-gray-200 my-1.5 sm:my-2 hidden sm:block"></div>
+                    <p id="info-optimal-hum" class="text-[0.60rem] sm:text-[0.65rem] font-semibold hidden sm:block">Optimal: 55%-60%</p>
                 </div>
             </div>
         </div>
@@ -241,6 +299,41 @@ include "../../components/header.php";
             s.innerText = "Status: " + text;
             s.className = "mt-2 text-sm font-medium " + colorClass;
         }
+
+        // Custom batch dropdown logic
+        function toggleBatchDropdown(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('batch-dropdown-menu');
+            const arrow = document.getElementById('batch-dropdown-arrow');
+            const isOpen = menu.classList.contains('open');
+            menu.classList.toggle('open', !isOpen);
+            arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+        }
+
+        function selectBatch(value, label) {
+            // Update label
+            document.getElementById('batch-dropdown-label').textContent = label;
+            // Update active state on items
+            document.querySelectorAll('#batch-dropdown-menu button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            // Sync with native select and trigger changeBatchType
+            const sel = document.getElementById('batch-select');
+            sel.value = value;
+            changeBatchType();
+            // Close menu
+            const menu = document.getElementById('batch-dropdown-menu');
+            const arrow = document.getElementById('batch-dropdown-arrow');
+            menu.classList.remove('open');
+            arrow.style.transform = '';
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('batch-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                document.getElementById('batch-dropdown-menu').classList.remove('open');
+                document.getElementById('batch-dropdown-arrow').style.transform = '';
+            }
+        });
 
         connect();
     </script>
