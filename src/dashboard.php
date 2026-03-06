@@ -130,8 +130,8 @@ include "components/header.php";
                 <span class="text-[10px] md:text-xs font-bold tracking-wider text-muted-text uppercase">Overview</span>
                 <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold mt-1">My Devices</h2>
             </div>
-            <button onclick="openModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <button onclick="openModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-base font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-1.5 sm:gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                 </svg>
                 New Device
@@ -139,7 +139,7 @@ include "components/header.php";
         </div>
 
         <?php if ($devices && mysqli_num_rows($devices) > 0): ?>
-            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 md:gap-8">
                 <?php while ($device = mysqli_fetch_assoc($devices)): ?>
                     <?php
                     $keys = array_keys($device);
@@ -209,10 +209,17 @@ include "components/header.php";
                                     <?= htmlspecialchars($displayName) ?>
                                 </h3>
                                 <div class="mt-2 sm:mt-6 pt-2 sm:pt-6 border-t border-gray-100">
-                                    <p class="text-[9px] sm:text-xs font-semibold text-muted-text uppercase mb-0.5 sm:mb-1">Broker Config</p>
-                                    <p class="text-[10px] sm:text-sm text-dark-text font-medium truncate">
-                                        <?= !empty($device['broker_url']) ? htmlspecialchars($device['broker_url']) : '-' ?>
-                                    </p>
+                                    <div class="hidden sm:block">
+                                        <p class="text-xs font-semibold text-muted-text uppercase mb-1">Broker Config</p>
+                                        <p class="text-sm text-dark-text font-medium truncate">
+                                            <?= !empty($device['broker_url']) ? htmlspecialchars($device['broker_url']) : '-' ?>
+                                        </p>
+                                    </div>
+                                    <!-- Invisible placeholder to maintain card height on mobile -->
+                                    <div class="sm:hidden invisible" aria-hidden="true">
+                                        <p class="text-[9px] font-semibold uppercase mb-0.5">&nbsp;</p>
+                                        <p class="text-[10px] font-medium">&nbsp;</p>
+                                    </div>
                                 </div>
                             </div>
                             <div class="mt-2 sm:mt-4 text-right">
