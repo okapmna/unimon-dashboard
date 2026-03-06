@@ -27,10 +27,11 @@ if (isset($_POST['add_device'])) {
                   VALUES ('$id_pemilik', '$dev_name', '$broker', '$user_mq', '$pass_mq', '$dev_type', '$broker_port')";
 
         if (mysqli_query($koneksi, $query)) {
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Berhasil tambah device!'];
             header("Location: dashboard.php");
             exit;
         } else {
-            echo "<script>alert('Gagal tambah device: " . mysqli_error($koneksi) . "');</script>";
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Gagal tambah device: ' . mysqli_error($koneksi)];
         }
     }
 }
@@ -62,10 +63,11 @@ if (isset($_POST['edit_device'])) {
                          WHERE device_id = '$id_device' AND user_id = '$id_pemilik'";
 
         if (mysqli_query($koneksi, $query_update)) {
-            echo "<script>alert('Berhasil update device!'); window.location='dashboard.php';</script>";
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Berhasil update device!'];
+            header("Location: dashboard.php");
             exit;
         } else {
-            echo "<script>alert('Gagal update: " . mysqli_error($koneksi) . "');</script>";
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Gagal update: ' . mysqli_error($koneksi)];
         }
     }
 }
@@ -76,16 +78,17 @@ if (isset($_POST['btn_hapus_pintar'])) {
     $nama_kolom = mysqli_real_escape_string($koneksi, $_POST['nama_kolom_target']);
 
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $nama_kolom)) {
-        echo "<script>alert('Error: Nama kolom tidak valid!');</script>";
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Error: Nama kolom tidak valid!'];
     } elseif (empty($id_target)) {
-        echo "<script>alert('Error: ID kosong!');</script>";
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Error: ID kosong!'];
     } else {
         $query_hapus = "DELETE FROM device WHERE $nama_kolom = '$id_target' LIMIT 1";
         if (mysqli_query($koneksi, $query_hapus)) {
-            echo "<script>alert('Berhasil! Device terhapus.'); window.location='dashboard.php';</script>";
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Berhasil! Device terhapus.'];
+            header("Location: dashboard.php");
             exit;
         } else {
-            echo "<script>alert('Gagal hapus database.');</script>";
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Gagal hapus database.'];
         }
     }
 }
@@ -98,41 +101,12 @@ $sql_fetch = "SELECT d.* FROM device d
 $devices = mysqli_query($koneksi, $sql_fetch);
 ?>
 
-<!DOCTYPE html>
-<html lang="id">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNIMQ - Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Manrope', 'sans-serif'] },
-                    colors: {
-                        'cream-bg': '#FFF8EC',
-                        'card-white': '#FFFFFF',
-                        'accent-green': '#386c12',
-                        'accent-blue': '#1E88E5',
-                        'accent-brown': '#CD9642',
-                        'dark-text': '#1a1a1a',
-                        'muted-text': '#888888'
-                    }
-                }
-            }
-        }
-    </script>
-    <script>
-        if (window.history.replaceState) {
-            window.history.replaceState(null, null, window.location.href);
-        }
-    </script>
-</head>
-
-<body class="bg-cream-bg text-dark-text min-h-screen font-sans selection:bg-accent-green selection:text-white pb-20">
+<?php
+$page_title = 'UNIMQ - Dashboard';
+$body_class = 'bg-cream-bg text-dark-text min-h-screen font-sans selection:bg-accent-green selection:text-white pb-20';
+$base_url = '';
+include "components/header.php";
+?>
 
     <nav class="flex justify-between items-center px-6 py-6 max-w-7xl mx-auto">
         <div>
@@ -381,6 +355,4 @@ $devices = mysqli_query($koneksi, $sql_fetch);
             }
         };
     </script>
-</body>
-
-</html>
+<?php include "components/footer.php"; ?>
