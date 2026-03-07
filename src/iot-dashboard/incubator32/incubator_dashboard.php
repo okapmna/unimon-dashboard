@@ -158,7 +158,7 @@ include "../../components/header.php";
             <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
                 <div class="flex items-center gap-1.5 sm:gap-3 mb-3 sm:mb-6 font-bold uppercase tracking-wide text-[11px] sm:text-base">
                     <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v13.5m0 0a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"></path></svg>
-                    <h2>TEMP</h2>
+                    <h2>TEMPERATURE</h2>
                 </div>
                 <div class="text-3xl sm:text-[3.5rem] font-bold text-[#386628] mb-3 sm:mb-8 leading-none"><span id="suhu">--</span>°C</div>
                 <div class="border border-black rounded-lg sm:rounded-xl p-2.5 sm:p-4">
@@ -180,7 +180,7 @@ include "../../components/header.php";
             <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
                 <div class="flex items-center gap-1.5 sm:gap-3 mb-3 sm:mb-6 font-bold uppercase tracking-wide text-[11px] sm:text-base">
                     <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25c-5.385 5.965-8.25 10.975-8.25 14.25a8.25 8.25 0 0016.5 0c0-3.275-2.865-8.285-8.25-14.25z" /></svg>
-                    <h2>HUMID</h2>
+                    <h2>HUMIDITY</h2>
                 </div>
                 <div class="text-3xl sm:text-[3.5rem] font-bold text-[#1E88E5] mb-3 sm:mb-8 leading-none"><span id="kelembapan">--</span>%</div>
                 <div class="border border-black rounded-lg sm:rounded-xl p-2.5 sm:p-4">
