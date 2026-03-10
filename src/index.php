@@ -11,9 +11,16 @@ session_start([
 ]);
 include "config/koneksi.php";
 
-// Auto login checker if user already logged in
-if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_me'])) {
-    list($selector, $validator) = explode(':', $_COOKIE['remember_me']);
+// redirect to dashboard if already logged in
+if (isset($_SESSION['username'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+
+// auto login checker
+if (!isset($_SESSION['username']) && isset($_COOKIE['remember_me'])) {
+    if (strpos($_COOKIE['remember_me'], ':') !== false) {
+        list($selector, $validator) = explode(':', $_COOKIE['remember_me']);
 
     $stmt = $koneksi->prepare("SELECT ut.user_id, ut.hashed_validator, u.user_name FROM user_tokens ut JOIN user u ON ut.user_id = u.user_id WHERE ut.selector = ? AND ut.expiry > NOW() LIMIT 1");
     if ($stmt) {
@@ -29,6 +36,7 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_me'])) {
                 header("Location: dashboard.php");
                 exit;
             }
+        }
         }
     }
 }
@@ -60,8 +68,16 @@ if (isset($_POST['login'])) {
                 $expiry = date('Y-m-d H:i:s', time() + 60 * 60 * 24 * 30);
 
                 $stmt_token = $koneksi->prepare("INSERT INTO user_tokens (user_id, selector, hashed_validator, expiry) VALUES (?, ?, ?, ?)");
-                $stmt_token->bind_param("isss", $data['user_id'], $selector, $hashedValidator, $expiry);
-                $stmt_token->execute();
+                if ($stmt_token) {
+                    $user_id_int = (int)$data['user_id'];
+                    $stmt_token->bind_param("isss", $user_id_int, $selector, $hashedValidator, $expiry);
+                    if (!$stmt_token->execute()) {
+                        error_log("Token insertion failed: " . $stmt_token->error);
+                    }
+                    $stmt_token->close();
+                } else {
+                    error_log("Token prepare failed: " . $koneksi->error);
+                }
 
                 setcookie('remember_me', $selector . ':' . $validator, [
                     'expires' => time() + 60 * 60 * 24 * 30,
@@ -119,7 +135,7 @@ include "components/header.php";
 
             <div class="flex items-center justify-between px-1">
                 <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-[#C69C6D] focus:ring-[#C69C6D]">
+                    <input type="checkbox" name="remember" checked class="w-4 h-4 rounded border-gray-300 text-[#C69C6D] focus:ring-[#C69C6D]">
                     <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Remember Me</span>
                 </label>
             </div>
