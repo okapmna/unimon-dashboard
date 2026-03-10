@@ -1,8 +1,5 @@
--- Hapus database jika sudah ada dan buat baru
 CREATE DATABASE IF NOT EXISTS `unimq`;
 USE `unimq`;
-
--- Pengaturan Awal
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
@@ -12,11 +9,7 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
--- --------------------------------------------------------
--- Struktur Tabel `user`
--- (Dibuat lebih dulu karena menjadi referensi Foreign Key)
--- --------------------------------------------------------
-
+-- Table structure for `user`
 CREATE TABLE `user` (
   `user_id` int(10) NOT NULL,
   `user_name` varchar(20) NOT NULL,
@@ -26,10 +19,7 @@ CREATE TABLE `user` (
 INSERT INTO `user` (`user_id`, `user_name`, `password`) VALUES
 (11, 'rusdingawi', '$2y$10$mAlEsUu84Iio1NRM8RmRnuc/SWCe1Yy5aNimQ28JKrUKeYTHAmiL.');
 
--- --------------------------------------------------------
--- Struktur Tabel `device`
--- --------------------------------------------------------
-
+-- Table structure for `device`
 CREATE TABLE `device` (
   `device_id` int(10) NOT NULL,
   `broker_url` varchar(500) NOT NULL,
@@ -45,30 +35,49 @@ INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_t
 (14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 11, 'Inkubator Ternak 1', '8080'),
 (19, '000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'cihuyyy', 'esp32-inkubator', 11, 'Inkubator burung', '8884');
 
--- --------------------------------------------------------
--- Indeks dan Constraints
--- --------------------------------------------------------
+-- Table structure for `user_tokens`
+CREATE TABLE `user_tokens` (
+  `id` int(11) NOT NULL,
+  `user_id` int(10) NOT NULL,
+  `selector` char(12) NOT NULL,
+  `hashed_validator` char(64) NOT NULL,
+  `expiry` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Indeks untuk tabel `user`
+-- Indexes and Constraints
+
+-- Indexes for `user`
 ALTER TABLE `user`
   ADD PRIMARY KEY (`user_id`);
 
--- Indeks untuk tabel `device`
+-- Indexes for `device`
 ALTER TABLE `device`
   ADD PRIMARY KEY (`device_id`),
   ADD KEY `user_id` (`user_id`);
 
--- AUTO_INCREMENT untuk tabel `user`
+-- Indexes for `user_tokens`
+ALTER TABLE `user_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+-- AUTO_INCREMENT for `user`
 ALTER TABLE `user`
   MODIFY `user_id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
--- AUTO_INCREMENT untuk tabel `device`
+-- AUTO_INCREMENT for `device`
 ALTER TABLE `device`
   MODIFY `device_id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
--- Relasi Foreign Key
+-- AUTO_INCREMENT for `user_tokens`
+ALTER TABLE `user_tokens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- Foreign Key Relationship
 ALTER TABLE `device`
   ADD CONSTRAINT `device_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`);
+
+ALTER TABLE `user_tokens`
+  ADD CONSTRAINT `user_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE;
 
 COMMIT;
 
