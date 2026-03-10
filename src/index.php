@@ -1,6 +1,12 @@
 <?php
 ob_start();
-session_start();
+session_start([
+    'cookie_httponly' => true,
+    'cookie_secure' => true,
+    'cookie_samesite' => 'Strict',
+    'cookie_lifetime' => 60 * 60 * 24 * 7,
+    'use_strict_mode' => true,
+]);
 include "config/koneksi.php";
 
 $error = "";
@@ -25,10 +31,10 @@ if (isset($_POST['login'])) {
             header("Location: dashboard.php");
             exit;
         } else {
-            $error = "Password salah";
+            $error = "Username and password do not match";
         }
     } else {
-        $error = "Username tidak ditemukan";
+        $error = "Username and password do not match";
     }
     $stmt->close();
 }
@@ -74,10 +80,10 @@ include "components/header.php";
         </form>
 
         <div class="mt-8 pt-8 border-t border-gray-100">
-            <p class="text-center text-sm text-gray-600 mb-4">Belum memiliki akun?</p>
+            <p class="text-center text-sm text-gray-600 mb-4">Don't have an account?</p>
             <form action="register.php" method="get">
                 <button type="submit" class="w-full border-2 border-black text-black font-bold py-3 rounded-xl hover:bg-black hover:text-white transition duration-300">
-                    DAFTAR SEKARANG
+                    REGISTER
                 </button>
             </form>
         </div>
