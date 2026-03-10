@@ -9,6 +9,24 @@ session_start();
 // Unset all session variables
 $_SESSION = array();
 
+// Delete login session token
+include "config/koneksi.php";
+if (isset($_COOKIE['remember_me'])) {
+    list($selector, $validator) = explode(':', $_COOKIE['remember_me']);
+    $stmt = $koneksi->prepare("DELETE FROM user_tokens WHERE selector = ?");
+    if ($stmt) {
+        $stmt->bind_param("s", $selector);
+        $stmt->execute();
+    }
+    
+    setcookie('remember_me', '', time() - 3600, [
+        'path' => '/',
+        'httponly' => true,
+        'secure' => true,
+        'samesite' => 'Strict',
+    ]);
+}
+
 // Destroy the session cookie
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
