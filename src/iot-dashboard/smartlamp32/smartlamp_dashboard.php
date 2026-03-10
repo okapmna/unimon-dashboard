@@ -1,4 +1,5 @@
-require_once "../../config/session.php";
+<?php
+session_start();
 // 1. Cek Login
 if (!isset($_SESSION['username'])) {
     header("Location: ../../index.php");
