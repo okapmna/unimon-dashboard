@@ -1,5 +1,12 @@
-<?php
-session_start();
+$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+session_start([
+    'cookie_httponly' => true,
+    'cookie_secure' => $isSecure,
+    'cookie_samesite' => 'Lax',
+    'cookie_lifetime' => 60 * 60 * 24 * 30,
+    'use_strict_mode' => true,
+]);
+
 if (!isset($_SESSION['username'])) {
     header("Location: index.php");
     exit;

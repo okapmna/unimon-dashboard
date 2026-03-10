@@ -19,12 +19,13 @@ if (isset($_COOKIE['remember_me'])) {
         $stmt->execute();
     }
     
+    $isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
     setcookie('remember_me', '', [
         'expires' => time() - 3600,
         'path' => '/',
         'httponly' => true,
-        'secure' => true,
-        'samesite' => 'Strict',
+        'secure' => $isSecure,
+        'samesite' => 'Lax',
     ]);
 }
 

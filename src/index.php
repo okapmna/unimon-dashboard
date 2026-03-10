@@ -1,10 +1,12 @@
 <?php
 ob_start();
+$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+
 session_start([
     'cookie_httponly' => true,
-    'cookie_secure' => true,
-    'cookie_samesite' => 'Strict',
-    'cookie_lifetime' => 60 * 60 * 24 * 7,
+    'cookie_secure' => $isSecure,
+    'cookie_samesite' => 'Lax',
+    'cookie_lifetime' => 60 * 60 * 24 * 30,
     'use_strict_mode' => true,
 ]);
 include "config/koneksi.php";
@@ -65,8 +67,8 @@ if (isset($_POST['login'])) {
                     'expires' => time() + 60 * 60 * 24 * 30,
                     'path' => '/',
                     'httponly' => true,
-                    'secure' => true,
-                    'samesite' => 'Strict',
+                    'secure' => $isSecure,
+                    'samesite' => 'Lax',
                 ]);
             }
             
