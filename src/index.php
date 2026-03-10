@@ -9,13 +9,34 @@ session_start([
 ]);
 include "config/koneksi.php";
 
+// Auto login checker if user already logged in
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_me'])) {
+    list($selector, $validator) = explode(':', $_COOKIE['remember_me']);
+
+    $stmt = $koneksi->prepare("SELECT ut.user_id, ut.hashed_validator, u.user_name FROM user_tokens ut JOIN user u ON ut.user_id = u.user_id WHERE ut.selector = ? AND ut.expiry > NOW() LIMIT 1");
+    if ($stmt) {
+        $stmt->bind_param("s", $selector);
+        $stmt->execute();
+        $res = $stmt->get_result();
+
+        if ($res && $res->num_rows === 1) {
+            $token_data = $res->fetch_assoc();
+            if (password_verify($validator, $token_data['hashed_validator'])) {
+                $_SESSION['user_id'] = $token_data['user_id'];
+                $_SESSION['username'] = $token_data['user_name'];
+                header("Location: dashboard.php");
+                exit;
+            }
+        }
+    }
+}
+
 $error = "";
 
 if (isset($_POST['login'])) {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // PREPARED STATEMENT
     $stmt = $koneksi->prepare("SELECT user_id, user_name, password FROM user WHERE user_name = ? LIMIT 1");
     $stmt->bind_param("s", $username);
     $stmt->execute();
@@ -24,9 +45,30 @@ if (isset($_POST['login'])) {
     if ($result && $result->num_rows === 1) {
         $data = $result->fetch_assoc();
 
+        // Login Checker
         if (password_verify($password, $data['password'])) {
             $_SESSION['user_id'] = $data['user_id'];
             $_SESSION['username'] = $data['user_name'];
+
+            // Remember Me
+            if (isset($_POST['remember'])) {
+                $selector = bin2hex(random_bytes(6));
+                $validator = bin2hex(random_bytes(32));
+                $hashedValidator = password_hash($validator, PASSWORD_DEFAULT);
+                $expiry = date('Y-m-d H:i:s', time() + 60 * 60 * 24 * 30);
+
+                $stmt_token = $koneksi->prepare("INSERT INTO user_tokens (user_id, selector, hashed_validator, expiry) VALUES (?, ?, ?, ?)");
+                $stmt_token->bind_param("isss", $data['user_id'], $selector, $hashedValidator, $expiry);
+                $stmt_token->execute();
+
+                setcookie('remember_me', $selector . ':' . $validator, [
+                    'expires' => time() + 60 * 60 * 24 * 30,
+                    'path' => '/',
+                    'httponly' => true,
+                    'secure' => true,
+                    'samesite' => 'Strict',
+                ]);
+            }
             
             header("Location: dashboard.php");
             exit;
@@ -71,6 +113,13 @@ include "components/header.php";
                         </svg>
                     </button>
                 </div>
+            </div>
+
+            <div class="flex items-center justify-between px-1">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-[#C69C6D] focus:ring-[#C69C6D]">
+                    <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Remember Me</span>
+                </label>
             </div>
 
             <button type="submit" name="login" 
