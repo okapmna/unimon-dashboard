@@ -1,3 +1,4 @@
+<?php
 require_once "config/session.php";
 include "config/koneksi.php";
 
