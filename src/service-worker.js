@@ -1,7 +1,5 @@
-const CACHE_NAME = 'unimon-v1';
+const CACHE_NAME = 'unimon-v2';
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.php',
     '/assets/css/style.css',
     '/assets/images/unimon-logo.png'
 ];
