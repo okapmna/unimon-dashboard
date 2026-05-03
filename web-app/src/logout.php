@@ -12,14 +12,16 @@ $_SESSION = array();
 // Delete login session token
 include "config/koneksi.php";
 if (isset($_COOKIE['remember_me'])) {
-    list($selector, $validator) = explode(':', $_COOKIE['remember_me']);
-    $stmt = $koneksi->prepare("DELETE FROM user_tokens WHERE selector = ?");
-    if ($stmt) {
-        $stmt->bind_param("s", $selector);
-        $stmt->execute();
+    if (strpos($_COOKIE['remember_me'], ':') !== false) {
+        list($selector) = explode(':', $_COOKIE['remember_me'], 2);
+        $stmt = $koneksi->prepare("DELETE FROM user_tokens WHERE selector = ?");
+        if ($stmt) {
+            $stmt->bind_param("s", $selector);
+            $stmt->execute();
+        }
     }
-    
-    $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+
+    $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
                 (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     setcookie('remember_me', '', [
         'expires' => time() - 3600,

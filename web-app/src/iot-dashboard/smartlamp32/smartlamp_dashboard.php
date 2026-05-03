@@ -17,7 +17,7 @@ $user_id = $_SESSION['user_id'];
 $device_id = mysqli_real_escape_string($koneksi, $_GET['device_id']);
 
 // 3. Ambil Data Device (Validasi kepemilikan / Shared Access / Admin)
-if ($_SESSION['role'] === 'admin') {
+if (($_SESSION['role'] ?? 'user') === 'admin') {
     $sql = "SELECT d.*, 'owner' as access_type FROM device d WHERE d.device_id = '$device_id'";
 } else {
     $sql = "SELECT d.*, 'owner' as access_type FROM device d WHERE d.device_id = '$device_id' AND d.user_id = '$user_id'
@@ -36,7 +36,7 @@ if (!$device_data) {
 }
 
 $access_type = $device_data['access_type'];
-$is_viewer = ($access_type === 'viewer');
+$is_viewer = false;
 
 // 4. Konfigurasi Broker
 $broker_host = $device_data['broker_url']; 
@@ -59,16 +59,17 @@ ob_start();
 
     <script>
         const mqttConfig = {
-            host: "<?= $broker_host ?>",
-            port: <?= $broker_port ?>,
-            username: "<?= $mq_user ?>", 
-            password: "<?= $mq_pass ?>", 
+            host: <?= json_encode($broker_host) ?>,
+            port: <?= (int)$broker_port ?>,
+            username: <?= json_encode($mq_user) ?>,
+            password: <?= json_encode($mq_pass) ?>,
             useSSL: <?= ($broker_port == 8883 || $broker_port == 8884) ? 'true' : 'false' ?>,
             topics: {
-                subscribe: { status: "<?= $topic_sub ?>" },
-                publish: { control: "<?= $topic_pub ?>" }
+                subscribe: { status: <?= json_encode($topic_sub) ?> },
+                publish: { control: <?= json_encode($topic_pub) ?> }
             }
         };
+        const isViewer = <?= $is_viewer ? 'true' : 'false' ?>;
     </script>
 
     <style>
@@ -128,7 +129,7 @@ include "../../components/header.php";
                         <p class="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">SWITCH</p>
                         <p id="switch-label" class="text-lg sm:text-xl font-bold">Turn On</p>
                     </div>
-                    <button onclick="togglePower()" id="power-btn" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-gray-200 text-gray-600 flex items-center justify-center text-2xl sm:text-3xl font-bold hover:scale-105 transition-all">
+                    <button type="button" onclick="togglePower()" id="power-btn" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-gray-200 text-gray-600 flex items-center justify-center text-2xl sm:text-3xl font-bold hover:scale-105 transition-all <?= $is_viewer ? 'opacity-50 cursor-not-allowed' : '' ?>" <?= $is_viewer ? 'disabled' : '' ?>>
                         +
                     </button>
                 </div>
@@ -143,7 +144,7 @@ include "../../components/header.php";
                 <div class="flex flex-col items-center my-6 sm:my-0">
                     <div class="text-6xl sm:text-7xl font-bold text-lamp-blue"><span id="brightness-val">0</span>%</div>
                     <div class="w-full px-2 sm:px-4 mt-4 sm:mt-6">
-                        <input type="range" id="brightness-slider" min="0" max="100" value="0" oninput="updateBrightness(this.value)" onchange="sendControl()">
+                        <input type="range" id="brightness-slider" min="0" max="100" value="0" oninput="updateBrightness(this.value)" onchange="sendControl()" <?= $is_viewer ? 'disabled' : '' ?>>
                     </div>
                 </div>
 
@@ -153,8 +154,8 @@ include "../../components/header.php";
                         <p class="text-lg sm:text-xl font-bold">Standard</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="updateBrightnessStep(10)" class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-lamp-blue text-white flex items-center justify-center font-bold hover:opacity-80">+</button>
-                        <button onclick="updateBrightnessStep(-10)" class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-lamp-blue text-white flex items-center justify-center font-bold hover:opacity-80">-</button>
+                        <button type="button" onclick="updateBrightnessStep(10)" class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-lamp-blue text-white flex items-center justify-center font-bold hover:opacity-80 <?= $is_viewer ? 'opacity-50 cursor-not-allowed' : '' ?>" <?= $is_viewer ? 'disabled' : '' ?>>+</button>
+                        <button type="button" onclick="updateBrightnessStep(-10)" class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-lamp-blue text-white flex items-center justify-center font-bold hover:opacity-80 <?= $is_viewer ? 'opacity-50 cursor-not-allowed' : '' ?>" <?= $is_viewer ? 'disabled' : '' ?>>-</button>
                     </div>
                 </div>
             </div>
@@ -239,12 +240,14 @@ include "../../components/header.php";
         }
 
         function togglePower() {
+            if (isViewer) return;
             currentPower = (currentPower === 'OFF') ? 'ON' : 'OFF';
             updatePowerUI(currentPower);
             sendControl();
         }
 
         function updateBrightness(val) {
+            if (isViewer) return;
             currentBrightness = val;
             document.getElementById('brightness-val').innerText = val;
         }
@@ -256,12 +259,14 @@ include "../../components/header.php";
         }
 
         function updateBrightnessStep(step) {
+            if (isViewer) return;
             currentBrightness = Math.min(100, Math.max(0, parseInt(currentBrightness) + step));
             updateBrightnessUI(currentBrightness);
             sendControl();
         }
 
         function sendControl() {
+            if (isViewer) return;
             if (client.connected) {
                 const payload = JSON.stringify({
                     power: currentPower,

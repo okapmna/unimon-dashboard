@@ -14,7 +14,7 @@ if (!isset($_SESSION['username'])) {
     exit;
 }
 
-if ($_SESSION['role'] === 'admin') {
+if (($_SESSION['role'] ?? 'user') === 'admin') {
     header("Location: admin/index.php");
     exit;
 }
@@ -72,7 +72,7 @@ include "components/header.php";
                 <span class="text-[10px] md:text-xs font-bold tracking-wider text-muted-text uppercase">Overview</span>
                 <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold mt-1">My Devices</h2>
             </div>
-            <button onclick="openRedeemModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-base font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-1.5 sm:gap-2">
+            <button type="button" onclick="openRedeemModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-base font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-1.5 sm:gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                 </svg>

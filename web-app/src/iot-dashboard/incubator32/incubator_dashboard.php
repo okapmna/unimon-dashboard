@@ -16,7 +16,7 @@ $user_id = $_SESSION['user_id'];
 $device_id = mysqli_real_escape_string($koneksi, $_GET['device_id']);
 
 // Check access (Owner OR Viewer)
-if ($_SESSION['role'] === 'admin') {
+if (($_SESSION['role'] ?? 'user') === 'admin') {
     $sql_access = "SELECT d.*, 'owner' as access_type FROM device d WHERE d.device_id = '$device_id'";
 } else {
     $sql_access = "SELECT d.*, 'owner' as access_type FROM device d WHERE d.device_id = '$device_id' AND d.user_id = '$user_id'
@@ -34,7 +34,7 @@ if (!$device_data) {
 }
 
 $access_type = $device_data['access_type'];
-$is_viewer = ($access_type === 'viewer');
+$is_viewer = false;
 
 $broker_host = $device_data['broker_url']; 
 $mq_user     = $device_data['mq_user'];
@@ -93,14 +93,14 @@ ob_start();
 
     <script>
         const mqttConfig = {
-            host: "<?= $broker_host ?>",
-            port: <?= $broker_port ?>, 
-            username: "<?= $mq_user ?>", 
-            password: "<?= $mq_pass ?>", 
+            host: <?= json_encode($broker_host) ?>,
+            port: <?= (int)$broker_port ?>,
+            username: <?= json_encode($mq_user) ?>,
+            password: <?= json_encode($mq_pass) ?>,
             useSSL: <?= ($broker_port == 8883 || $broker_port == 8884) ? 'true' : 'false' ?>,
             topics: {
-                subscribe: "<?= $topic_sub ?>",
-                publish: "<?= $topic_pub ?>"
+                subscribe: <?= json_encode($topic_sub) ?>,
+                publish: <?= json_encode($topic_pub) ?>
             }
         };
 
@@ -189,15 +189,15 @@ include "../../components/header.php";
                 </select>
                 <!-- Custom Dropdown -->
                 <div class="batch-dropdown" id="batch-dropdown">
-                    <button onclick="toggleBatchDropdown(event)" id="batch-dropdown-btn" class="bg-[#C69C6D] text-black font-semibold px-5 py-2 rounded-full shadow-sm text-xs sm:text-sm flex items-center gap-2 hover:bg-[#b8885a] transition-colors duration-200 <?= $is_viewer ? 'opacity-50 cursor-not-allowed' : '' ?>" <?= $is_viewer ? 'disabled' : '' ?>>
+                    <button type="button" onclick="toggleBatchDropdown(event)" id="batch-dropdown-btn" class="bg-[#C69C6D] text-black font-semibold px-5 py-2 rounded-full shadow-sm text-xs sm:text-sm flex items-center gap-2 hover:bg-[#b8885a] transition-colors duration-200 <?= $is_viewer ? 'opacity-50 cursor-not-allowed' : '' ?>" <?= $is_viewer ? 'disabled' : '' ?>>
                         <span id="batch-dropdown-label">Chicken (Ayam)</span>
                         <svg id="batch-dropdown-arrow" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <?php if (!$is_viewer): ?>
                     <div class="batch-dropdown-menu" id="batch-dropdown-menu">
-                        <button onclick="selectBatch('chicken', 'Chicken (Ayam)')" class="active">Chicken (Ayam)</button>
-                        <button onclick="selectBatch('duck', 'Duck (Bebek)')">Duck (Bebek)</button>
-                        <button onclick="selectBatch('quail', 'Quail (Puyuh)')">Quail (Puyuh)</button>
+                        <button type="button" onclick="selectBatch(event, 'chicken', 'Chicken (Ayam)')" class="active">Chicken (Ayam)</button>
+                        <button type="button" onclick="selectBatch(event, 'duck', 'Duck (Bebek)')">Duck (Bebek)</button>
+                        <button type="button" onclick="selectBatch(event, 'quail', 'Quail (Puyuh)')">Quail (Puyuh)</button>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -219,8 +219,8 @@ include "../../components/header.php";
                         </div>
                         <?php if (!$is_viewer): ?>
                         <div class="flex gap-1.5 sm:gap-2">
-                            <button onclick="updateTarget('temp', -0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">-</button>
-                            <button onclick="updateTarget('temp', 0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">+</button>
+                            <button type="button" onclick="updateTarget('temp', -0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">-</button>
+                            <button type="button" onclick="updateTarget('temp', 0.1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#386628] text-white flex items-center justify-center font-bold text-sm">+</button>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -243,8 +243,8 @@ include "../../components/header.php";
                         </div>
                         <?php if (!$is_viewer): ?>
                         <div class="flex gap-1.5 sm:gap-2">
-                            <button onclick="updateTarget('hum', -1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">-</button>
-                            <button onclick="updateTarget('hum', 1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">+</button>
+                            <button type="button" onclick="updateTarget('hum', -1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">-</button>
+                            <button type="button" onclick="updateTarget('hum', 1)" class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-[#1E88E5] text-white flex items-center justify-center font-bold text-sm">+</button>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -568,7 +568,7 @@ include "../../components/header.php";
             arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
         }
 
-        function selectBatch(value, label) {
+        function selectBatch(event, value, label) {
             document.getElementById('batch-dropdown-label').textContent = label;
             document.querySelectorAll('#batch-dropdown-menu button').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');

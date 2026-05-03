@@ -14,7 +14,7 @@ include "config/koneksi.php";
 
 // redirect to dashboard if already logged in
 if (isset($_SESSION['username'])) {
-    if ($_SESSION['role'] === 'admin') {
+    if (($_SESSION['role'] ?? 'user') === 'admin') {
         header("Location: admin/index.php");
     } else {
         header("Location: dashboard.php");

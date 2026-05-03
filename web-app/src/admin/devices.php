@@ -13,6 +13,11 @@ if (!$admin_id) {
         $_SESSION['user_id'] = $admin_id;
     }
 }
+if (!$admin_id && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['toast'] = ['type' => 'error', 'message' => 'Admin session is incomplete. Please log in again.'];
+    header("Location: ../logout.php");
+    exit;
+}
 
 function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 1, $expires_at = "NULL") {
     do {
@@ -56,16 +61,20 @@ if (isset($_POST['add_device'])) {
     $query = "INSERT INTO device (user_id, device_name, broker_url, mq_user, mq_pass, device_type, broker_port)
               VALUES ('$id_pemilik', '$dev_name', '$broker', '$user_mq', '$pass_mq', '$dev_type', '$broker_port')";
 
+    mysqli_begin_transaction($koneksi);
     if (mysqli_query($koneksi, $query)) {
         $new_id = mysqli_insert_id($koneksi);
         $token_code = generateDeviceAccessToken($koneksi, $new_id, $admin_id);
         if ($token_code) {
             insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'token' => $token_code]);
+            mysqli_commit($koneksi);
             $_SESSION['toast'] = ['type' => 'success', 'message' => "Device added. Device code: $token_code"];
         } else {
-            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Device added, but failed to generate device code: ' . mysqli_error($koneksi)];
+            mysqli_rollback($koneksi);
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to add device code: ' . mysqli_error($koneksi)];
         }
     } else {
+        mysqli_rollback($koneksi);
         $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to add device: ' . mysqli_error($koneksi)];
     }
     header("Location: devices.php");
@@ -94,6 +103,7 @@ if (isset($_POST['edit_device'])) {
                      WHERE device_id = '$id_device'";
 
     if (mysqli_query($koneksi, $query_update)) {
+        mysqli_query($koneksi, "DELETE FROM user_device_access WHERE user_id = '$id_pemilik' AND device_id = '$id_device'");
         insertAdminAuditLog($koneksi, $admin_id, 'edit_device', 'device', $id_device, ['name' => $dev_name]);
         $_SESSION['toast'] = ['type' => 'success', 'message' => 'Device successfully updated!'];
     } else {
@@ -189,7 +199,7 @@ function sortLink($col, $label) {
     $new_dir = ($sort_col === $col && $sort_dir === 'ASC') ? 'desc' : 'asc';
     $icon = '';
     if ($sort_col === $col) {
-        $icon = $sort_dir === 'ASC' ? ' ↑' : ' ↓';
+        $icon = $sort_dir === 'ASC' ? ' ^' : ' v';
     }
     return "<a href=\"?search=$search&sort=$col&dir=$new_dir\" class=\"hover:text-accent-green transition\">$label$icon</a>";
 }

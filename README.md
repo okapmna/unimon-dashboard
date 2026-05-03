@@ -18,9 +18,9 @@ Follow these steps to set up the dashboard in your local environment:
 Ensure you have **Docker** and **Docker Compose** installed on your system.
 
 ### 2. Environment Configuration
-Copy the `.env.example` file to `.env` inside the `src` directory:
+Copy the `.env.example` file to `.env` inside the `web-app/src` directory:
 ```bash
-cp src/.env.example src/.env
+cp web-app/src/.env.example web-app/src/.env
 ```
 *Make sure the database configuration in `.env` matches the one in `docker-compose.yml`.*
 
@@ -33,7 +33,8 @@ docker compose up -d --build
 ### 4. Database Initialization
 1. Open **phpMyAdmin** at `http://localhost:8082`.
 2. Log in with user: `root` and password: `rootpassword` (or as configured in `.env`).
-3. Import the `database/unimq.sql` file into the `unimq` database.
+3. Import `database/unimq.sql` into the `unimq` database.
+4. Import `database/migrations/001_admin_sharing_spike.sql` after the base schema.
    *Note: Ensure the `device_logs` table is present to enable history features.*
 
 ### 5. Access the App
