@@ -1,14 +1,14 @@
 -- 1. Update user table
-ALTER TABLE `user` ADD COLUMN `role` ENUM('admin', 'user') DEFAULT 'user' AFTER `password`;
+ALTER TABLE `user` ADD COLUMN IF NOT EXISTS `role` ENUM('admin', 'user') DEFAULT 'user' AFTER `password`;
 
 -- 2. Update device table
-ALTER TABLE `device` ADD COLUMN `last_logged_values` JSON NULL AFTER `broker_port`;
+ALTER TABLE `device` ADD COLUMN IF NOT EXISTS `last_logged_values` JSON NULL AFTER `broker_port`;
 
 -- 3. Update device_logs table
-ALTER TABLE `device_logs` ADD COLUMN `log_type` ENUM('aggregation', 'change_event') DEFAULT 'aggregation' AFTER `data`;
+ALTER TABLE `device_logs` ADD COLUMN IF NOT EXISTS `log_type` ENUM('aggregation', 'change_event') DEFAULT 'aggregation' AFTER `data`;
 
 -- 4. Create device_access_tokens table
-CREATE TABLE `device_access_tokens` (
+CREATE TABLE IF NOT EXISTS `device_access_tokens` (
   `token_id` int(11) NOT NULL AUTO_INCREMENT,
   `device_id` int(10) NOT NULL,
   `token_code` varchar(50) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE `device_access_tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 5. Create user_device_access table
-CREATE TABLE `user_device_access` (
+CREATE TABLE IF NOT EXISTS `user_device_access` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(10) NOT NULL,
   `device_id` int(10) NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE `user_device_access` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 6. Create admin_audit_log table
-CREATE TABLE `admin_audit_log` (
+CREATE TABLE IF NOT EXISTS `admin_audit_log` (
   `log_id` int(11) NOT NULL AUTO_INCREMENT,
   `admin_id` int(10) NOT NULL,
   `action` varchar(255) NOT NULL,

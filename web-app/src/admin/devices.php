@@ -19,19 +19,103 @@ if (!$admin_id && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 1, $expires_at = "NULL") {
+function ensureAdminDeviceTables($koneksi) {
+    $schema_queries = [
+        "CREATE TABLE IF NOT EXISTS `device_access_tokens` (
+          `token_id` int(11) NOT NULL AUTO_INCREMENT,
+          `device_id` int(10) NOT NULL,
+          `token_code` varchar(50) NOT NULL,
+          `created_by` int(10) NOT NULL,
+          `max_uses` int(11) DEFAULT NULL,
+          `current_uses` int(11) DEFAULT 0,
+          `expires_at` datetime DEFAULT NULL,
+          `is_active` tinyint(1) DEFAULT 1,
+          `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`token_id`),
+          UNIQUE KEY `token_code` (`token_code`),
+          KEY `device_id` (`device_id`),
+          KEY `created_by` (`created_by`),
+          CONSTRAINT `device_access_tokens_ibfk_1` FOREIGN KEY (`device_id`) REFERENCES `device` (`device_id`) ON DELETE CASCADE,
+          CONSTRAINT `device_access_tokens_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `user` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+        "CREATE TABLE IF NOT EXISTS `user_device_access` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) NOT NULL,
+          `device_id` int(10) NOT NULL,
+          `access_type` ENUM('owner', 'viewer') NOT NULL,
+          `redeemed_via_token_id` int(11) DEFAULT NULL,
+          `granted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `user_device` (`user_id`, `device_id`),
+          KEY `user_id` (`user_id`),
+          KEY `device_id` (`device_id`),
+          KEY `redeemed_via_token_id` (`redeemed_via_token_id`),
+          CONSTRAINT `user_device_access_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+          CONSTRAINT `user_device_access_ibfk_2` FOREIGN KEY (`device_id`) REFERENCES `device` (`device_id`) ON DELETE CASCADE,
+          CONSTRAINT `user_device_access_ibfk_3` FOREIGN KEY (`redeemed_via_token_id`) REFERENCES `device_access_tokens` (`token_id`) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+        "CREATE TABLE IF NOT EXISTS `admin_audit_log` (
+          `log_id` int(11) NOT NULL AUTO_INCREMENT,
+          `admin_id` int(10) NOT NULL,
+          `action` varchar(255) NOT NULL,
+          `target_type` varchar(50) NOT NULL,
+          `target_id` int(11) DEFAULT NULL,
+          `details` json DEFAULT NULL,
+          `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`log_id`),
+          KEY `admin_id` (`admin_id`),
+          CONSTRAINT `admin_audit_log_ibfk_1` FOREIGN KEY (`admin_id`) REFERENCES `user` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    ];
+
+    foreach ($schema_queries as $query) {
+        if (!mysqli_query($koneksi, $query)) {
+            error_log('Admin device schema check failed: ' . mysqli_error($koneksi));
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function tableExists($koneksi, $table) {
+    $safe_table = mysqli_real_escape_string($koneksi, $table);
+    $result = mysqli_query($koneksi, "SHOW TABLES LIKE '$safe_table'");
+    return $result && mysqli_num_rows($result) > 0;
+}
+
+function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 1, $expires_at = null, &$error = null) {
+    $error = null;
+    $max_uses_sql = ($max_uses === null || $max_uses === '' || strtoupper((string)$max_uses) === 'NULL')
+        ? 'NULL'
+        : (string) max(1, (int) $max_uses);
+    $expires_at_sql = 'NULL';
+    if ($expires_at !== null && $expires_at !== '' && strtoupper((string)$expires_at) !== 'NULL') {
+        $normalized_expires_at = str_replace('T', ' ', (string) $expires_at);
+        $expires_at_sql = "'" . mysqli_real_escape_string($koneksi, $normalized_expires_at) . "'";
+    }
+
     do {
         $token_code = strtoupper(bin2hex(random_bytes(4)));
         $escaped_token = mysqli_real_escape_string($koneksi, $token_code);
         $existing = mysqli_query($koneksi, "SELECT token_id FROM device_access_tokens WHERE token_code = '$escaped_token' LIMIT 1");
+        if (!$existing) {
+            $error = mysqli_error($koneksi);
+            return false;
+        }
     } while ($existing && mysqli_num_rows($existing) > 0);
 
     $safe_device_id = mysqli_real_escape_string($koneksi, $device_id);
     $safe_admin_id = mysqli_real_escape_string($koneksi, $admin_id);
     $query = "INSERT INTO device_access_tokens (device_id, token_code, created_by, max_uses, expires_at)
-              VALUES ('$safe_device_id', '$escaped_token', '$safe_admin_id', $max_uses, $expires_at)";
+              VALUES ('$safe_device_id', '$escaped_token', '$safe_admin_id', $max_uses_sql, $expires_at_sql)";
 
-    return mysqli_query($koneksi, $query) ? $token_code : false;
+    if (!mysqli_query($koneksi, $query)) {
+        $error = mysqli_error($koneksi);
+        return false;
+    }
+
+    return $token_code;
 }
 
 function insertAdminAuditLog($koneksi, $admin_id, $action, $target_type, $target_id, $details) {
@@ -41,16 +125,18 @@ function insertAdminAuditLog($koneksi, $admin_id, $action, $target_type, $target
     $safe_target_id = mysqli_real_escape_string($koneksi, $target_id);
     $safe_details = mysqli_real_escape_string($koneksi, json_encode($details));
 
-    mysqli_query($koneksi, "INSERT INTO admin_audit_log (admin_id, action, target_type, target_id, details) VALUES ('$safe_admin_id', '$safe_action', '$safe_target_type', '$safe_target_id', '$safe_details')");
+    return mysqli_query($koneksi, "INSERT INTO admin_audit_log (admin_id, action, target_type, target_id, details) VALUES ('$safe_admin_id', '$safe_action', '$safe_target_type', '$safe_target_id', '$safe_details')");
 }
 
-function htmlJson($value) {
-    return htmlspecialchars(json_encode($value, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
+function htmlAttr($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
+
+ensureAdminDeviceTables($koneksi);
 
 // Handle Add Device
 if (isset($_POST['add_device'])) {
-    $id_pemilik = mysqli_real_escape_string($koneksi, $_POST['owner_id']);
+    $id_pemilik = (int) ($_POST['owner_id'] ?? 0);
     $dev_name = mysqli_real_escape_string($koneksi, $_POST['device_name']);
     $dev_type = mysqli_real_escape_string($koneksi, $_POST['device_type']);
     $broker   = mysqli_real_escape_string($koneksi, $_POST['broker_url']);
@@ -58,20 +144,26 @@ if (isset($_POST['add_device'])) {
     $pass_mq  = mysqli_real_escape_string($koneksi, $_POST['mq_pass']);
     $broker_port = mysqli_real_escape_string($koneksi, $_POST['broker_port']);
 
+    if ($id_pemilik <= 0 || !in_array($dev_type, ['esp32-inkubator', 'esp32-smartlamp'], true)) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Invalid device data.'];
+        header("Location: devices.php");
+        exit;
+    }
+
     $query = "INSERT INTO device (user_id, device_name, broker_url, mq_user, mq_pass, device_type, broker_port)
               VALUES ('$id_pemilik', '$dev_name', '$broker', '$user_mq', '$pass_mq', '$dev_type', '$broker_port')";
 
     mysqli_begin_transaction($koneksi);
     if (mysqli_query($koneksi, $query)) {
         $new_id = mysqli_insert_id($koneksi);
-        $token_code = generateDeviceAccessToken($koneksi, $new_id, $admin_id);
+        $token_error = null;
+        $token_code = generateDeviceAccessToken($koneksi, $new_id, $admin_id, 1, null, $token_error);
+        insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'token' => $token_code]);
+        mysqli_commit($koneksi);
         if ($token_code) {
-            insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'token' => $token_code]);
-            mysqli_commit($koneksi);
             $_SESSION['toast'] = ['type' => 'success', 'message' => "Device added. Device code: $token_code"];
         } else {
-            mysqli_rollback($koneksi);
-            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to add device code: ' . mysqli_error($koneksi)];
+            $_SESSION['toast'] = ['type' => 'warning', 'message' => 'Device added, but code generation failed: ' . ($token_error ?: 'unknown error')];
         }
     } else {
         mysqli_rollback($koneksi);
@@ -83,14 +175,20 @@ if (isset($_POST['add_device'])) {
 
 // Handle Edit Device
 if (isset($_POST['edit_device'])) {
-    $id_device = mysqli_real_escape_string($koneksi, $_POST['edit_device_id']);
-    $id_pemilik = mysqli_real_escape_string($koneksi, $_POST['edit_owner_id']);
+    $id_device = (int) ($_POST['edit_device_id'] ?? 0);
+    $id_pemilik = (int) ($_POST['edit_owner_id'] ?? 0);
     $dev_name  = mysqli_real_escape_string($koneksi, $_POST['edit_device_name']);
     $dev_type  = mysqli_real_escape_string($koneksi, $_POST['edit_device_type']);
     $broker    = mysqli_real_escape_string($koneksi, $_POST['edit_broker_url']);
     $broker_port = mysqli_real_escape_string($koneksi, $_POST['edit_broker_port']);
     $user_mq   = mysqli_real_escape_string($koneksi, $_POST['edit_mq_user']);
     $pass_mq   = mysqli_real_escape_string($koneksi, $_POST['edit_mq_pass']);
+
+    if ($id_device <= 0 || $id_pemilik <= 0 || !in_array($dev_type, ['esp32-inkubator', 'esp32-smartlamp'], true)) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Invalid device data.'];
+        header("Location: devices.php");
+        exit;
+    }
 
     $query_update = "UPDATE device SET
                      user_id     = '$id_pemilik',
@@ -103,7 +201,9 @@ if (isset($_POST['edit_device'])) {
                      WHERE device_id = '$id_device'";
 
     if (mysqli_query($koneksi, $query_update)) {
-        mysqli_query($koneksi, "DELETE FROM user_device_access WHERE user_id = '$id_pemilik' AND device_id = '$id_device'");
+        if (tableExists($koneksi, 'user_device_access')) {
+            mysqli_query($koneksi, "DELETE FROM user_device_access WHERE user_id = '$id_pemilik' AND device_id = '$id_device'");
+        }
         insertAdminAuditLog($koneksi, $admin_id, 'edit_device', 'device', $id_device, ['name' => $dev_name]);
         $_SESSION['toast'] = ['type' => 'success', 'message' => 'Device successfully updated!'];
     } else {
@@ -135,17 +235,18 @@ if (isset($_POST['delete_device'])) {
 // Handle Token Generation
 if (isset($_POST['generate_token'])) {
     $device_id = mysqli_real_escape_string($koneksi, $_POST['device_id']);
-    $max_uses = !empty($_POST['max_uses']) ? mysqli_real_escape_string($koneksi, $_POST['max_uses']) : "NULL";
-    $expires_at = !empty($_POST['expires_at']) ? "'" . mysqli_real_escape_string($koneksi, $_POST['expires_at']) . "'" : "NULL";
+    $max_uses = !empty($_POST['max_uses']) ? $_POST['max_uses'] : null;
+    $expires_at = !empty($_POST['expires_at']) ? $_POST['expires_at'] : null;
 
-    $token_code = generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses, $expires_at);
+    $token_error = null;
+    $token_code = generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses, $expires_at, $token_error);
 
     if ($token_code) {
         // Audit Log
         insertAdminAuditLog($koneksi, $admin_id, 'generate_token', 'device', $device_id, ['token' => $token_code]);
         $_SESSION['toast'] = ['type' => 'success', 'message' => "Device code generated: $token_code"];
     } else {
-        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to generate device code.'];
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to generate device code: ' . ($token_error ?: 'unknown error')];
     }
     header("Location: devices.php");
     exit;
@@ -180,8 +281,13 @@ $count_sql = "SELECT COUNT(*) as total FROM device d JOIN user u ON d.user_id = 
 $total_rows = mysqli_fetch_assoc(mysqli_query($koneksi, $count_sql))['total'];
 $total_pages = ceil($total_rows / $limit);
 
+$has_user_device_access = tableExists($koneksi, 'user_device_access');
+$shared_users_select = $has_user_device_access
+    ? "(SELECT COUNT(*) FROM user_device_access uda WHERE uda.device_id = d.device_id AND uda.access_type = 'viewer')"
+    : "0";
+
 $sql_devices = "SELECT d.*, u.user_name as owner_name,
-                (SELECT COUNT(*) FROM user_device_access uda WHERE uda.device_id = d.device_id AND uda.access_type = 'viewer') as shared_users
+                $shared_users_select as shared_users
                 FROM device d
                 JOIN user u ON d.user_id = u.user_id
                 $where_clause
@@ -274,11 +380,20 @@ include "../components/header.php";
                             </td>
                             <td class="px-6 py-4 text-right space-x-1">
                                 <div class="flex justify-end gap-1">
-                                    <button type="button" data-device-id="<?= $device['device_id'] ?>" data-device-name="<?= htmlspecialchars($device['device_name'], ENT_QUOTES, 'UTF-8') ?>" onclick="openTokenModal(this)"
+                                    <button type="button" data-device-id="<?= htmlAttr($device['device_id']) ?>" data-device-name="<?= htmlAttr($device['device_name']) ?>" onclick="openTokenModal(this)"
                                         class="bg-accent-green/10 text-accent-green hover:bg-accent-green hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Code</button>
-                                    <button type="button" data-device='<?= htmlJson($device) ?>' onclick="openEditDeviceModal(this)"
+                                    <button type="button"
+                                        data-device-id="<?= htmlAttr($device['device_id']) ?>"
+                                        data-owner-id="<?= htmlAttr($device['user_id']) ?>"
+                                        data-device-name="<?= htmlAttr($device['device_name']) ?>"
+                                        data-device-type="<?= htmlAttr($device['device_type']) ?>"
+                                        data-broker-url="<?= htmlAttr($device['broker_url']) ?>"
+                                        data-broker-port="<?= htmlAttr($device['broker_port']) ?>"
+                                        data-mq-user="<?= htmlAttr($device['mq_user'] ?? '') ?>"
+                                        data-mq-pass="<?= htmlAttr($device['mq_pass'] ?? '') ?>"
+                                        onclick="openEditDeviceModal(this)"
                                         class="bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Edit</button>
-                                    <form method="POST" onsubmit="return confirm('Delete this device permanently?');" class="inline">
+                                    <form method="POST" action="devices.php" onsubmit="return confirm('Delete this device permanently?');" class="inline">
                                         <input type="hidden" name="device_id" value="<?= $device['device_id'] ?>">
                                         <button type="submit" name="delete_device" class="bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Del</button>
                                     </form>
@@ -311,7 +426,7 @@ include "../components/header.php";
     <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
             <h3 class="text-2xl font-bold mb-6">Add New Device</h3>
-            <form method="POST" class="space-y-4">
+            <form method="POST" action="devices.php" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Device Name</label>
                     <input type="text" name="device_name" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-accent-green/20">
@@ -364,7 +479,7 @@ include "../components/header.php";
     <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
             <h3 class="text-2xl font-bold mb-6">Edit Device</h3>
-            <form method="POST" class="space-y-4">
+            <form method="POST" action="devices.php" class="space-y-4">
                 <input type="hidden" name="edit_device_id" id="edit_device_id">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Device Name</label>
@@ -419,7 +534,7 @@ include "../components/header.php";
         <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
             <h3 class="text-2xl font-bold mb-2">Generate Device Code</h3>
             <p id="tokenModalDevice" class="text-gray-500 text-sm mb-6"></p>
-            <form method="POST">
+            <form method="POST" action="devices.php">
                 <input type="hidden" name="device_id" id="tokenModalDeviceId">
                 <div class="space-y-4">
                     <div>
@@ -465,15 +580,15 @@ include "../components/header.php";
     }
 
     function openEditDeviceModal(button) {
-        const d = JSON.parse(button.dataset.device);
-        document.getElementById('edit_device_id').value = d.device_id;
-        document.getElementById('edit_device_name').value = d.device_name || '';
-        document.getElementById('edit_device_type').value = d.device_type || '';
-        document.getElementById('edit_owner_id').value = d.user_id;
-        document.getElementById('edit_broker_url').value = d.broker_url || '';
-        document.getElementById('edit_broker_port').value = d.broker_port || '';
-        document.getElementById('edit_mq_user').value = d.mq_user || '';
-        document.getElementById('edit_mq_pass').value = d.mq_pass || '';
+        const d = button.dataset;
+        document.getElementById('edit_device_id').value = d.deviceId || '';
+        document.getElementById('edit_device_name').value = d.deviceName || '';
+        document.getElementById('edit_device_type').value = d.deviceType || '';
+        document.getElementById('edit_owner_id').value = d.ownerId || '';
+        document.getElementById('edit_broker_url').value = d.brokerUrl || '';
+        document.getElementById('edit_broker_port').value = d.brokerPort || '';
+        document.getElementById('edit_mq_user').value = d.mqUser || '';
+        document.getElementById('edit_mq_pass').value = d.mqPass || '';
         document.getElementById('editDeviceModal').classList.remove('hidden');
     }
     function closeEditDeviceModal() {

@@ -2,10 +2,16 @@
     <?php if (isset($_SESSION['toast'])): ?>
         <?php
         $toast = $_SESSION['toast'];
-        $toastType = $toast['type'] === 'success' ? 'bg-accent-green' : 'bg-red-500';
-        $toastIcon = $toast['type'] === 'success' 
-            ? '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-            : '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        if ($toast['type'] === 'success') {
+            $toastType = 'bg-accent-green';
+            $toastIcon = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+        } elseif ($toast['type'] === 'warning') {
+            $toastType = 'bg-amber-500';
+            $toastIcon = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>';
+        } else {
+            $toastType = 'bg-red-500';
+            $toastIcon = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        }
         ?>
         <div id="toast-message" class="fixed top-5 left-1/2 z-50 transform -translate-x-1/2 -translate-y-24 opacity-0 transition-all duration-300 flex items-center p-4 mb-4 text-white rounded-xl shadow-lg min-w-[300px] <?= $toastType ?>" role="alert">
             <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-white/20">
