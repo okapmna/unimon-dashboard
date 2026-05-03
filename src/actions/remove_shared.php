@@ -1,5 +1,5 @@
 <?php
-$isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+$isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
             (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 session_start([
     'cookie_httponly' => true,
@@ -19,8 +19,18 @@ include "../config/koneksi.php";
 $user_id = $_SESSION['user_id'];
 $device_id = mysqli_real_escape_string($koneksi, $_POST['device_id']);
 
+$sql_owner = "SELECT user_id FROM device WHERE device_id = '$device_id' LIMIT 1";
+$result_owner = mysqli_query($koneksi, $sql_owner);
+$device = mysqli_fetch_assoc($result_owner);
+
+if ($device && $device['user_id'] == $user_id) {
+    $_SESSION['toast'] = ['type' => 'error', 'message' => 'Owned devices can only be managed by an admin.'];
+    header("Location: ../dashboard.php");
+    exit;
+}
+
 $query = "DELETE FROM user_device_access WHERE user_id = '$user_id' AND device_id = '$device_id'";
-if (mysqli_query($koneksi, $query)) {
+if (mysqli_query($koneksi, $query) && mysqli_affected_rows($koneksi) > 0) {
     $_SESSION['toast'] = ['type' => 'success', 'message' => 'Shared device removed from your dashboard.'];
 } else {
     $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to remove shared device.'];
