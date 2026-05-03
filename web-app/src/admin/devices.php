@@ -227,6 +227,11 @@ if (isset($_POST['add_device'])) {
     mysqli_begin_transaction($koneksi);
     if (mysqli_query($koneksi, $query)) {
         $new_id = mysqli_insert_id($koneksi);
+
+        // Mirror serial number into the legacy access table for existing RBAC data paths.
+        mysqli_query($koneksi, "INSERT INTO device_access_tokens (device_id, token_code, serial_number, created_by, max_uses)
+                                VALUES ('$new_id', '$serial_number', '$serial_number', '$admin_id', 1)");
+
         insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'serial_number' => $serial_number]);
         mysqli_commit($koneksi);
         $_SESSION['toast'] = ['type' => 'success', 'message' => "Device added. Serial number: $serial_number"];
