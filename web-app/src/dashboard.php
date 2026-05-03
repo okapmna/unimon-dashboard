@@ -72,7 +72,7 @@ include "components/header.php";
                 <span class="text-[10px] md:text-xs font-bold tracking-wider text-muted-text uppercase">Overview</span>
                 <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold mt-1">My Devices</h2>
             </div>
-            <button type="button" onclick="openRedeemModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-base font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-1.5 sm:gap-2">
+            <button type="button" onclick="openNewDeviceModal()" class="bg-accent-green hover:bg-[#2e5910] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-base font-semibold shadow-lg shadow-green-900/10 transition transform hover:-translate-y-0.5 flex items-center gap-1.5 sm:gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                 </svg>
@@ -177,23 +177,23 @@ include "components/header.php";
         <?php endif; ?>
     </main>
 
-    <div id="redeemModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onclick="closeRedeemModal()"></div>
+    <div id="newDeviceModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onclick="closeNewDeviceModal()"></div>
         <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
             <div class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-gray-100">
                 <div class="bg-white px-8 py-8">
                     <div class="mb-6">
                         <h3 class="text-2xl font-bold leading-6 text-gray-900">New Device</h3>
-                        <p class="mt-2 text-sm text-gray-500">Enter the device code provided by your administrator.</p>
+                        <p class="mt-2 text-sm text-gray-500">Enter the serial number provided by your administrator.</p>
                     </div>
-                    <form action="actions/redeem_token.php" method="post" class="space-y-5">
+                    <form action="actions/redeem_serial_number.php" method="post" class="space-y-5">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Device Code</label>
-                            <input type="text" name="token_code" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-accent-green focus:ring-accent-green sm:text-sm py-3 px-4 bg-gray-50 font-mono" placeholder="e.g. AB12CD34" required>
+                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Serial Number</label>
+                            <input type="text" name="serial_number" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-accent-green focus:ring-accent-green sm:text-sm py-3 px-4 bg-gray-50 font-mono" placeholder="e.g. AB12CD34" required>
                         </div>
                         <div class="pt-4 flex flex-col gap-3">
-                            <button type="submit" name="redeem" class="w-full justify-center rounded-xl bg-accent-green px-3 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-[#2e5910] transition-all">Add Device</button>
-                            <button type="button" onclick="closeRedeemModal()" class="w-full justify-center rounded-xl bg-white px-3 py-3.5 text-sm font-bold text-gray-500 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all">Batal</button>
+                            <button type="submit" name="add_serial_device" class="w-full justify-center rounded-xl bg-accent-green px-3 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-[#2e5910] transition-all">Add Device</button>
+                            <button type="button" onclick="closeNewDeviceModal()" class="w-full justify-center rounded-xl bg-white px-3 py-3.5 text-sm font-bold text-gray-500 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all">Batal</button>
                         </div>
                     </form>
                 </div>
@@ -202,19 +202,18 @@ include "components/header.php";
     </div>
 
     <script>
-        // Modal Redeem
-        function openRedeemModal() {
-            document.getElementById('redeemModal').classList.remove('hidden');
+        function openNewDeviceModal() {
+            document.getElementById('newDeviceModal').classList.remove('hidden');
         }
 
-        function closeRedeemModal() {
-            document.getElementById('redeemModal').classList.add('hidden');
+        function closeNewDeviceModal() {
+            document.getElementById('newDeviceModal').classList.add('hidden');
         }
 
         document.onkeydown = function(evt) {
             evt = evt || window.event;
             if (evt.keyCode == 27) {
-                closeRedeemModal();
+                closeNewDeviceModal();
             }
         };
     </script>

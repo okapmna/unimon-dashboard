@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `device_access_tokens` (
   `token_id` int(11) NOT NULL AUTO_INCREMENT,
   `device_id` int(10) NOT NULL,
   `token_code` varchar(50) NOT NULL,
+  `serial_number` varchar(50) DEFAULT NULL,
   `created_by` int(10) NOT NULL,
   `max_uses` int(11) DEFAULT NULL,
   `current_uses` int(11) DEFAULT 0,
@@ -20,11 +21,16 @@ CREATE TABLE IF NOT EXISTS `device_access_tokens` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`token_id`),
   UNIQUE KEY `token_code` (`token_code`),
+  UNIQUE KEY `serial_number` (`serial_number`),
   KEY `device_id` (`device_id`),
   KEY `created_by` (`created_by`),
   CONSTRAINT `device_access_tokens_ibfk_1` FOREIGN KEY (`device_id`) REFERENCES `device` (`device_id`) ON DELETE CASCADE,
   CONSTRAINT `device_access_tokens_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `device_access_tokens` ADD COLUMN IF NOT EXISTS `serial_number` varchar(50) DEFAULT NULL AFTER `token_code`;
+UPDATE `device_access_tokens` SET `serial_number` = `token_code` WHERE `serial_number` IS NULL OR `serial_number` = '';
+CREATE UNIQUE INDEX IF NOT EXISTS `serial_number` ON `device_access_tokens` (`serial_number`);
 
 -- 5. Create user_device_access table
 CREATE TABLE IF NOT EXISTS `user_device_access` (

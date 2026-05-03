@@ -9,7 +9,7 @@ session_start([
     'use_strict_mode' => true,
 ]);
 
-if (!isset($_SESSION['username']) || !isset($_POST['redeem'])) {
+if (!isset($_SESSION['username']) || !isset($_POST['add_serial_device'])) {
     header("Location: ../dashboard.php");
     exit;
 }
@@ -27,52 +27,57 @@ if (!$user_id) {
     }
 }
 
-$token_code = strtoupper(trim($_POST['token_code'] ?? ''));
-if (!$user_id || $token_code === '') {
-    $_SESSION['toast'] = ['type' => 'error', 'message' => 'Invalid device code.'];
+$serial_number = strtoupper(trim($_POST['serial_number'] ?? ''));
+if (!$user_id || $serial_number === '') {
+    $_SESSION['toast'] = ['type' => 'error', 'message' => 'Invalid serial number.'];
     header("Location: ../dashboard.php");
     exit;
 }
 
-$safe_token_code = mysqli_real_escape_string($koneksi, $token_code);
+$safe_serial_number = mysqli_real_escape_string($koneksi, $serial_number);
 $safe_user_id = mysqli_real_escape_string($koneksi, $user_id);
+$serial_column_result = mysqli_query($koneksi, "SHOW COLUMNS FROM device_access_tokens LIKE 'serial_number'");
+$has_serial_column = $serial_column_result && mysqli_num_rows($serial_column_result) > 0;
+$serial_lookup_clause = $has_serial_column
+    ? "serial_number = '$safe_serial_number' OR token_code = '$safe_serial_number'"
+    : "token_code = '$safe_serial_number'";
 
 mysqli_begin_transaction($koneksi);
 try {
-    $sql_token = "SELECT * FROM device_access_tokens WHERE token_code = '$safe_token_code' LIMIT 1 FOR UPDATE";
-    $result_token = mysqli_query($koneksi, $sql_token);
-    if (!$result_token) {
+    $sql_serial = "SELECT * FROM device_access_tokens WHERE $serial_lookup_clause LIMIT 1 FOR UPDATE";
+    $result_serial = mysqli_query($koneksi, $sql_serial);
+    if (!$result_serial) {
         throw new Exception(mysqli_error($koneksi));
     }
 
-    $token = mysqli_fetch_assoc($result_token);
-    if (!$token || (int)$token['is_active'] !== 1) {
-        throw new Exception('Invalid or inactive device code.');
+    $serial = mysqli_fetch_assoc($result_serial);
+    if (!$serial || (int)$serial['is_active'] !== 1) {
+        throw new Exception('Invalid or inactive serial number.');
     }
 
-    if ($token['expires_at'] && strtotime($token['expires_at']) < time()) {
-        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '{$token['token_id']}'");
+    if ($serial['expires_at'] && strtotime($serial['expires_at']) < time()) {
+        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '{$serial['token_id']}'");
         if (!$deactivate) {
             throw new Exception(mysqli_error($koneksi));
         }
         mysqli_commit($koneksi);
-        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Device code has expired.'];
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Serial number has expired.'];
         header("Location: ../dashboard.php");
         exit;
     }
 
-    if ($token['max_uses'] !== null && (int)$token['current_uses'] >= (int)$token['max_uses']) {
-        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '{$token['token_id']}'");
+    if ($serial['max_uses'] !== null && (int)$serial['current_uses'] >= (int)$serial['max_uses']) {
+        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '{$serial['token_id']}'");
         if (!$deactivate) {
             throw new Exception(mysqli_error($koneksi));
         }
         mysqli_commit($koneksi);
-        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Device code has reached maximum usage limit.'];
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Serial number has reached maximum usage limit.'];
         header("Location: ../dashboard.php");
         exit;
     }
 
-    $device_id = mysqli_real_escape_string($koneksi, $token['device_id']);
+    $device_id = mysqli_real_escape_string($koneksi, $serial['device_id']);
     $sql_owner = "SELECT user_id FROM device WHERE device_id = '$device_id' LIMIT 1";
     $result_owner = mysqli_query($koneksi, $sql_owner);
     if (!$result_owner) {
@@ -81,7 +86,7 @@ try {
 
     $owner = mysqli_fetch_assoc($result_owner);
     if (!$owner) {
-        throw new Exception('Device linked to this code no longer exists.');
+        throw new Exception('Device linked to this serial number no longer exists.');
     }
 
     if ((int)$owner['user_id'] === (int)$safe_user_id) {
@@ -98,20 +103,20 @@ try {
         throw new Exception('You already have access to this device.');
     }
 
-    $token_id = mysqli_real_escape_string($koneksi, $token['token_id']);
+    $serial_id = mysqli_real_escape_string($koneksi, $serial['token_id']);
     $insert_access = mysqli_query($koneksi, "INSERT INTO user_device_access (user_id, device_id, access_type, redeemed_via_token_id)
-                                             VALUES ('$safe_user_id', '$device_id', 'viewer', '$token_id')");
+                                             VALUES ('$safe_user_id', '$device_id', 'viewer', '$serial_id')");
     if (!$insert_access) {
         throw new Exception(mysqli_error($koneksi));
     }
 
-    $update_token = mysqli_query($koneksi, "UPDATE device_access_tokens SET current_uses = current_uses + 1 WHERE token_id = '$token_id'");
-    if (!$update_token) {
+    $update_serial = mysqli_query($koneksi, "UPDATE device_access_tokens SET current_uses = current_uses + 1 WHERE token_id = '$serial_id'");
+    if (!$update_serial) {
         throw new Exception(mysqli_error($koneksi));
     }
 
-    if ($token['max_uses'] !== null && ((int)$token['current_uses'] + 1) >= (int)$token['max_uses']) {
-        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '$token_id'");
+    if ($serial['max_uses'] !== null && ((int)$serial['current_uses'] + 1) >= (int)$serial['max_uses']) {
+        $deactivate = mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = 0 WHERE token_id = '$serial_id'");
         if (!$deactivate) {
             throw new Exception(mysqli_error($koneksi));
         }

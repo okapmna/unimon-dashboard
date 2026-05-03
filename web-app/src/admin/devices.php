@@ -25,6 +25,7 @@ function ensureAdminDeviceTables($koneksi) {
           `token_id` int(11) NOT NULL AUTO_INCREMENT,
           `device_id` int(10) NOT NULL,
           `token_code` varchar(50) NOT NULL,
+          `serial_number` varchar(50) DEFAULT NULL,
           `created_by` int(10) NOT NULL,
           `max_uses` int(11) DEFAULT NULL,
           `current_uses` int(11) DEFAULT 0,
@@ -33,6 +34,7 @@ function ensureAdminDeviceTables($koneksi) {
           `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
           PRIMARY KEY (`token_id`),
           UNIQUE KEY `token_code` (`token_code`),
+          UNIQUE KEY `serial_number` (`serial_number`),
           KEY `device_id` (`device_id`),
           KEY `created_by` (`created_by`),
           CONSTRAINT `device_access_tokens_ibfk_1` FOREIGN KEY (`device_id`) REFERENCES `device` (`device_id`) ON DELETE CASCADE,
@@ -75,6 +77,22 @@ function ensureAdminDeviceTables($koneksi) {
         }
     }
 
+    if (!columnExists($koneksi, 'device_access_tokens', 'serial_number')) {
+        if (!mysqli_query($koneksi, "ALTER TABLE `device_access_tokens` ADD COLUMN `serial_number` varchar(50) DEFAULT NULL AFTER `token_code`")) {
+            error_log('Admin device schema check failed: ' . mysqli_error($koneksi));
+            return false;
+        }
+    }
+
+    mysqli_query($koneksi, "UPDATE `device_access_tokens` SET `serial_number` = `token_code` WHERE `serial_number` IS NULL OR `serial_number` = ''");
+
+    if (!indexExists($koneksi, 'device_access_tokens', 'serial_number')) {
+        if (!mysqli_query($koneksi, "ALTER TABLE `device_access_tokens` ADD UNIQUE KEY `serial_number` (`serial_number`)")) {
+            error_log('Admin device schema check failed: ' . mysqli_error($koneksi));
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -84,7 +102,21 @@ function tableExists($koneksi, $table) {
     return $result && mysqli_num_rows($result) > 0;
 }
 
-function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 1, $expires_at = null, &$error = null) {
+function columnExists($koneksi, $table, $column) {
+    $safe_table = mysqli_real_escape_string($koneksi, $table);
+    $safe_column = mysqli_real_escape_string($koneksi, $column);
+    $result = mysqli_query($koneksi, "SHOW COLUMNS FROM `$safe_table` LIKE '$safe_column'");
+    return $result && mysqli_num_rows($result) > 0;
+}
+
+function indexExists($koneksi, $table, $index) {
+    $safe_table = mysqli_real_escape_string($koneksi, $table);
+    $safe_index = mysqli_real_escape_string($koneksi, $index);
+    $result = mysqli_query($koneksi, "SHOW INDEX FROM `$safe_table` WHERE Key_name = '$safe_index'");
+    return $result && mysqli_num_rows($result) > 0;
+}
+
+function generateDeviceSerialNumber($koneksi, $device_id, $admin_id, $max_uses = 1, $expires_at = null, &$error = null) {
     $error = null;
     $max_uses_sql = ($max_uses === null || $max_uses === '' || strtoupper((string)$max_uses) === 'NULL')
         ? 'NULL'
@@ -96,9 +128,9 @@ function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 
     }
 
     do {
-        $token_code = strtoupper(bin2hex(random_bytes(4)));
-        $escaped_token = mysqli_real_escape_string($koneksi, $token_code);
-        $existing = mysqli_query($koneksi, "SELECT token_id FROM device_access_tokens WHERE token_code = '$escaped_token' LIMIT 1");
+        $serial_number = strtoupper(bin2hex(random_bytes(4)));
+        $escaped_serial_number = mysqli_real_escape_string($koneksi, $serial_number);
+        $existing = mysqli_query($koneksi, "SELECT token_id FROM device_access_tokens WHERE token_code = '$escaped_serial_number' OR serial_number = '$escaped_serial_number' LIMIT 1");
         if (!$existing) {
             $error = mysqli_error($koneksi);
             return false;
@@ -107,15 +139,15 @@ function generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses = 
 
     $safe_device_id = mysqli_real_escape_string($koneksi, $device_id);
     $safe_admin_id = mysqli_real_escape_string($koneksi, $admin_id);
-    $query = "INSERT INTO device_access_tokens (device_id, token_code, created_by, max_uses, expires_at)
-              VALUES ('$safe_device_id', '$escaped_token', '$safe_admin_id', $max_uses_sql, $expires_at_sql)";
+    $query = "INSERT INTO device_access_tokens (device_id, token_code, serial_number, created_by, max_uses, expires_at)
+              VALUES ('$safe_device_id', '$escaped_serial_number', '$escaped_serial_number', '$safe_admin_id', $max_uses_sql, $expires_at_sql)";
 
     if (!mysqli_query($koneksi, $query)) {
         $error = mysqli_error($koneksi);
         return false;
     }
 
-    return $token_code;
+    return $serial_number;
 }
 
 function insertAdminAuditLog($koneksi, $admin_id, $action, $target_type, $target_id, $details) {
@@ -156,14 +188,14 @@ if (isset($_POST['add_device'])) {
     mysqli_begin_transaction($koneksi);
     if (mysqli_query($koneksi, $query)) {
         $new_id = mysqli_insert_id($koneksi);
-        $token_error = null;
-        $token_code = generateDeviceAccessToken($koneksi, $new_id, $admin_id, 1, null, $token_error);
-        insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'token' => $token_code]);
+        $serial_error = null;
+        $serial_number = generateDeviceSerialNumber($koneksi, $new_id, $admin_id, 1, null, $serial_error);
+        insertAdminAuditLog($koneksi, $admin_id, 'add_device', 'device', $new_id, ['name' => $dev_name, 'serial_number' => $serial_number]);
         mysqli_commit($koneksi);
-        if ($token_code) {
-            $_SESSION['toast'] = ['type' => 'success', 'message' => "Device added. Device code: $token_code"];
+        if ($serial_number) {
+            $_SESSION['toast'] = ['type' => 'success', 'message' => "Device added. Serial number: $serial_number"];
         } else {
-            $_SESSION['toast'] = ['type' => 'warning', 'message' => 'Device added, but code generation failed: ' . ($token_error ?: 'unknown error')];
+            $_SESSION['toast'] = ['type' => 'warning', 'message' => 'Device added, but serial number generation failed: ' . ($serial_error ?: 'unknown error')];
         }
     } else {
         mysqli_rollback($koneksi);
@@ -232,32 +264,32 @@ if (isset($_POST['delete_device'])) {
     exit;
 }
 
-// Handle Token Generation
-if (isset($_POST['generate_token'])) {
+// Handle Serial Number Generation
+if (isset($_POST['generate_serial_number'])) {
     $device_id = mysqli_real_escape_string($koneksi, $_POST['device_id']);
     $max_uses = !empty($_POST['max_uses']) ? $_POST['max_uses'] : null;
     $expires_at = !empty($_POST['expires_at']) ? $_POST['expires_at'] : null;
 
-    $token_error = null;
-    $token_code = generateDeviceAccessToken($koneksi, $device_id, $admin_id, $max_uses, $expires_at, $token_error);
+    $serial_error = null;
+    $serial_number = generateDeviceSerialNumber($koneksi, $device_id, $admin_id, $max_uses, $expires_at, $serial_error);
 
-    if ($token_code) {
+    if ($serial_number) {
         // Audit Log
-        insertAdminAuditLog($koneksi, $admin_id, 'generate_token', 'device', $device_id, ['token' => $token_code]);
-        $_SESSION['toast'] = ['type' => 'success', 'message' => "Device code generated: $token_code"];
+        insertAdminAuditLog($koneksi, $admin_id, 'generate_serial_number', 'device', $device_id, ['serial_number' => $serial_number]);
+        $_SESSION['toast'] = ['type' => 'success', 'message' => "Serial number generated: $serial_number"];
     } else {
-        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to generate device code: ' . ($token_error ?: 'unknown error')];
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to generate serial number: ' . ($serial_error ?: 'unknown error')];
     }
     header("Location: devices.php");
     exit;
 }
 
-// Handle Token Deactivation
-if (isset($_POST['toggle_token'])) {
-    $token_id = mysqli_real_escape_string($koneksi, $_POST['token_id']);
+// Handle Serial Number Deactivation
+if (isset($_POST['toggle_serial_number'])) {
+    $serial_id = mysqli_real_escape_string($koneksi, $_POST['serial_id']);
     $new_status = mysqli_real_escape_string($koneksi, $_POST['status']);
 
-    mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = '$new_status' WHERE token_id = '$token_id'");
+    mysqli_query($koneksi, "UPDATE device_access_tokens SET is_active = '$new_status' WHERE token_id = '$serial_id'");
     header("Location: devices.php");
     exit;
 }
@@ -380,8 +412,8 @@ include "../components/header.php";
                             </td>
                             <td class="px-6 py-4 text-right space-x-1">
                                 <div class="flex justify-end gap-1">
-                                    <button type="button" data-device-id="<?= htmlAttr($device['device_id']) ?>" data-device-name="<?= htmlAttr($device['device_name']) ?>" onclick="openTokenModal(this)"
-                                        class="bg-accent-green/10 text-accent-green hover:bg-accent-green hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Code</button>
+                                    <button type="button" data-device-id="<?= htmlAttr($device['device_id']) ?>" data-device-name="<?= htmlAttr($device['device_name']) ?>" onclick="openSerialNumberModal(this)"
+                                        class="bg-accent-green/10 text-accent-green hover:bg-accent-green hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Serial No.</button>
                                     <button type="button"
                                         data-device-id="<?= htmlAttr($device['device_id']) ?>"
                                         data-owner-id="<?= htmlAttr($device['user_id']) ?>"
@@ -398,8 +430,8 @@ include "../components/header.php";
                                         <button type="submit" name="delete_device" class="bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">Del</button>
                                     </form>
                                 </div>
-                                <button type="button" onclick="viewTokens(<?= $device['device_id'] ?>)"
-                                    class="text-[10px] font-bold text-gray-400 hover:underline mt-1 block w-full text-right">View Codes</button>
+                                <button type="button" onclick="viewSerialNumbers(<?= $device['device_id'] ?>)"
+                                    class="text-[10px] font-bold text-gray-400 hover:underline mt-1 block w-full text-right">View Serial Numbers</button>
                             </td>
                         </tr>
                     <?php endwhile; ?>
@@ -527,15 +559,15 @@ include "../components/header.php";
     </div>
 </div>
 
-<!-- Token Generation Modal -->
-<div id="tokenModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" onclick="closeTokenModal()"></div>
+<!-- Serial Number Generation Modal -->
+<div id="serialNumberModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" onclick="closeSerialNumberModal()"></div>
     <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
-            <h3 class="text-2xl font-bold mb-2">Generate Device Code</h3>
-            <p id="tokenModalDevice" class="text-gray-500 text-sm mb-6"></p>
+            <h3 class="text-2xl font-bold mb-2">Generate Serial Number</h3>
+            <p id="serialNumberModalDevice" class="text-gray-500 text-sm mb-6"></p>
             <form method="POST" action="devices.php">
-                <input type="hidden" name="device_id" id="tokenModalDeviceId">
+                <input type="hidden" name="device_id" id="serialNumberModalDeviceId">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Max Uses (Optional)</label>
@@ -547,25 +579,25 @@ include "../components/header.php";
                     </div>
                 </div>
                 <div class="mt-8 flex gap-3">
-                    <button type="submit" name="generate_token" class="flex-1 bg-accent-green text-white font-bold py-3 rounded-xl hover:bg-green-700 transition">Generate Code</button>
-                    <button type="button" onclick="closeTokenModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition">Cancel</button>
+                    <button type="submit" name="generate_serial_number" class="flex-1 bg-accent-green text-white font-bold py-3 rounded-xl hover:bg-green-700 transition">Generate</button>
+                    <button type="button" onclick="closeSerialNumberModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- View Codes Modal -->
-<div id="viewTokensModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" onclick="closeViewTokensModal()"></div>
+<!-- View Serial Numbers Modal -->
+<div id="viewSerialNumbersModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" onclick="closeViewSerialNumbersModal()"></div>
     <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-8">
-            <h3 class="text-2xl font-bold mb-6">Device Codes</h3>
-            <div id="tokensList" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+            <h3 class="text-2xl font-bold mb-6">Device Serial Numbers</h3>
+            <div id="serialNumbersList" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                 <!-- Populated via JS/PHP -->
             </div>
             <div class="mt-8 text-right">
-                <button type="button" onclick="closeViewTokensModal()" class="bg-gray-100 text-gray-600 font-bold px-6 py-2 rounded-xl hover:bg-gray-200 transition">Close</button>
+                <button type="button" onclick="closeViewSerialNumbersModal()" class="bg-gray-100 text-gray-600 font-bold px-6 py-2 rounded-xl hover:bg-gray-200 transition">Close</button>
             </div>
         </div>
     </div>
@@ -595,37 +627,37 @@ include "../components/header.php";
         document.getElementById('editDeviceModal').classList.add('hidden');
     }
 
-    function openTokenModal(button) {
+    function openSerialNumberModal(button) {
         const id = button.dataset.deviceId;
         const name = button.dataset.deviceName;
-        document.getElementById('tokenModalDeviceId').value = id;
-        document.getElementById('tokenModalDevice').innerText = "Generating device code for: " + name;
-        document.getElementById('tokenModal').classList.remove('hidden');
+        document.getElementById('serialNumberModalDeviceId').value = id;
+        document.getElementById('serialNumberModalDevice').innerText = "Generating serial number for: " + name;
+        document.getElementById('serialNumberModal').classList.remove('hidden');
     }
 
-    function closeTokenModal() {
-        document.getElementById('tokenModal').classList.add('hidden');
+    function closeSerialNumberModal() {
+        document.getElementById('serialNumberModal').classList.add('hidden');
     }
 
-    async function viewTokens(deviceId) {
-        const list = document.getElementById('tokensList');
-        list.innerHTML = '<p class="text-center py-10 text-gray-400">Loading codes...</p>';
-        document.getElementById('viewTokensModal').classList.remove('hidden');
+    async function viewSerialNumbers(deviceId) {
+        const list = document.getElementById('serialNumbersList');
+        list.innerHTML = '<p class="text-center py-10 text-gray-400">Loading serial numbers...</p>';
+        document.getElementById('viewSerialNumbersModal').classList.remove('hidden');
 
         try {
-            const response = await fetch(`get_tokens.php?device_id=${deviceId}`);
-            const tokens = await response.json();
+            const response = await fetch(`get_serial_numbers.php?device_id=${deviceId}`);
+            const serialNumbers = await response.json();
 
-            if (tokens.length === 0) {
-                list.innerHTML = '<p class="text-center py-10 text-gray-400">No codes generated for this device.</p>';
+            if (serialNumbers.length === 0) {
+                list.innerHTML = '<p class="text-center py-10 text-gray-400">No serial numbers generated for this device.</p>';
                 return;
             }
 
-            list.innerHTML = tokens.map(t => `
+            list.innerHTML = serialNumbers.map(t => `
                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                     <div>
                         <div class="flex items-center gap-3 mb-1">
-                            <span class="font-mono font-bold text-accent-green text-lg">${t.token_code}</span>
+                            <span class="font-mono font-bold text-accent-green text-lg">${t.serial_number}</span>
                             <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                                 ${t.is_active ? 'Active' : 'Revoked'}
                             </span>
@@ -635,8 +667,8 @@ include "../components/header.php";
                         </p>
                     </div>
                     <form method="POST" action="devices.php">
-                        <input type="hidden" name="token_id" value="${t.token_id}">
-                        <input type="hidden" name="toggle_token" value="1">
+                        <input type="hidden" name="serial_id" value="${t.token_id}">
+                        <input type="hidden" name="toggle_serial_number" value="1">
                         <input type="hidden" name="status" value="${t.is_active ? 0 : 1}">
                         <button type="submit" class="text-xs font-bold ${t.is_active ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'} transition">
                             ${t.is_active ? 'Revoke' : 'Activate'}
@@ -645,12 +677,12 @@ include "../components/header.php";
                 </div>
             `).join('');
         } catch (e) {
-            list.innerHTML = '<p class="text-center py-10 text-red-500">Failed to load codes.</p>';
+            list.innerHTML = '<p class="text-center py-10 text-red-500">Failed to load serial numbers.</p>';
         }
     }
 
-    function closeViewTokensModal() {
-        document.getElementById('viewTokensModal').classList.add('hidden');
+    function closeViewSerialNumbersModal() {
+        document.getElementById('viewSerialNumbersModal').classList.add('hidden');
     }
 </script>
 
