@@ -29,13 +29,14 @@ CREATE TABLE `device` (
   `device_type` varchar(50) NOT NULL,
   `user_id` int(10) NOT NULL,
   `device_name` varchar(50) NOT NULL,
+  `serial_number` varchar(50) DEFAULT NULL,
   `broker_port` varchar(5) NOT NULL,
   `last_logged_values` json DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_type`, `user_id`, `device_name`, `broker_port`) VALUES
-(14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 11, 'Inkubator Ternak 1', '8080'),
-(19, '0000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'itsabirds', 'esp32-inkubator', 11, 'Inkubator burung', '8884');
+INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_type`, `user_id`, `device_name`, `serial_number`, `broker_port`) VALUES
+(14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 11, 'Inkubator Ternak 1', 'A14C0F1E', '8080'),
+(19, '0000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'itsabirds', 'esp32-inkubator', 11, 'Inkubator burung', 'B19D2A7C', '8884');
 
 -- Table structure for `user_tokens`
 CREATE TABLE `user_tokens` (
@@ -55,6 +56,7 @@ ALTER TABLE `user`
 -- Indexes for `device`
 ALTER TABLE `device`
   ADD PRIMARY KEY (`device_id`),
+  ADD UNIQUE KEY `device_serial_number` (`serial_number`),
   ADD KEY `user_id` (`user_id`);
 
 -- Indexes for `user_tokens`

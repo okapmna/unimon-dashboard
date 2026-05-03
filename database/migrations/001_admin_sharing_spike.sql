@@ -2,6 +2,7 @@
 ALTER TABLE `user` ADD COLUMN IF NOT EXISTS `role` ENUM('admin', 'user') DEFAULT 'user' AFTER `password`;
 
 -- 2. Update device table
+ALTER TABLE `device` ADD COLUMN IF NOT EXISTS `serial_number` varchar(50) DEFAULT NULL AFTER `device_name`;
 ALTER TABLE `device` ADD COLUMN IF NOT EXISTS `last_logged_values` JSON NULL AFTER `broker_port`;
 
 -- 3. Update device_logs table
@@ -31,6 +32,21 @@ CREATE TABLE IF NOT EXISTS `device_access_tokens` (
 ALTER TABLE `device_access_tokens` ADD COLUMN IF NOT EXISTS `serial_number` varchar(50) DEFAULT NULL AFTER `token_code`;
 UPDATE `device_access_tokens` SET `serial_number` = `token_code` WHERE `serial_number` IS NULL OR `serial_number` = '';
 CREATE UNIQUE INDEX IF NOT EXISTS `serial_number` ON `device_access_tokens` (`serial_number`);
+
+UPDATE `device` d
+JOIN (
+  SELECT `device_id`, MIN(COALESCE(`serial_number`, `token_code`)) as `serial_number`
+  FROM `device_access_tokens`
+  GROUP BY `device_id`
+) s ON s.`device_id` = d.`device_id`
+SET d.`serial_number` = s.`serial_number`
+WHERE d.`serial_number` IS NULL OR d.`serial_number` = '';
+
+UPDATE `device`
+SET `serial_number` = UPPER(SUBSTRING(MD5(CONCAT('device-', `device_id`, '-', `device_name`)), 1, 8))
+WHERE `serial_number` IS NULL OR `serial_number` = '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS `device_serial_number` ON `device` (`serial_number`);
 
 -- 5. Create user_device_access table
 CREATE TABLE IF NOT EXISTS `user_device_access` (
