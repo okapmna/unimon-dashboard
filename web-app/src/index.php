@@ -1,15 +1,6 @@
 <?php
 ob_start();
-$isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
-            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-
-session_start([
-    'cookie_httponly' => true,
-    'cookie_secure' => $isSecure,
-    'cookie_samesite' => 'Strict',
-    'cookie_lifetime' => 60 * 60 * 24 * 30,
-    'use_strict_mode' => true,
-]);
+include "config/session.php";
 include "config/koneksi.php";
 
 // redirect to dashboard if already logged in

@@ -1,5 +1,5 @@
 <?php
-session_start();
+include "../../config/session.php";
 
 if (!isset($_SESSION['username'])) {
     header("Location: ../../index.php");

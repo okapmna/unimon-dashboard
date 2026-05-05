@@ -4,7 +4,7 @@
  * Destroys the session and redirects to login page
  */
 
-session_start();
+include "config/session.php";
 
 // Unset all session variables
 $_SESSION = array();
