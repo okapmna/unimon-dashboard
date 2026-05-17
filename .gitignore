@@ -1,3 +1,6 @@
 # Ignore all files with spesific format
 *.log
 *.env
+
+# Node
+node_modules/

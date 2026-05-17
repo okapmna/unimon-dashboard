@@ -6,6 +6,9 @@ async function startWorker() {
   
   // Initial sync
   await deviceManager.syncDevices();
+
+  // Start the 30s heartbeat for connected devices.
+  deviceManager.startHeartbeat();
   
   // Sync periodically
   setInterval(() => {

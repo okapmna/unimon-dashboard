@@ -18,17 +18,19 @@ Follow these steps to set up the dashboard in your local environment:
 Ensure you have **Docker** and **Docker Compose** installed on your system.
 
 ### 2. Environment Configuration
-Copy the `.env.example` file to `.env` inside the `web-app/src` directory:
+Copy the `.env.example` file to `.env` inside the `web-app-express` directory:
 ```bash
-cp web-app/src/.env.example web-app/src/.env
+cp web-app-express/.env.example web-app-express/.env
 ```
 *Make sure the database configuration in `.env` matches the one in `docker-compose.yml`.*
 
 ### 3. Run Containers
-Build and start all services (Nginx, PHP, MariaDB, phpMyAdmin, and MQTT Worker):
+Build and start all services (Express web app, MariaDB, phpMyAdmin, and MQTT Worker):
 ```bash
 docker compose up -d --build
 ```
+
+> Note: The web app has been migrated from PHP native to Node.js + Express. Source code lives in `web-app-express/`.
 
 ### 4. Database Initialization
 1. Open **phpMyAdmin** at `http://localhost:8082`.

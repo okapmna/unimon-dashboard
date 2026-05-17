@@ -1,6 +1,11 @@
 const pool = require('../config/db');
+const { maybeUpdateFirmwareVersion } = require('./firmware');
 
 async function handleIncubator(device, data, buffer) {
+  // Persist firmware version on every well-formed payload, before any other
+  // processing (Req 9.1).
+  await maybeUpdateFirmwareVersion(device, data);
+
   let hasData = false;
   
   // 1. Spike Detection Logic

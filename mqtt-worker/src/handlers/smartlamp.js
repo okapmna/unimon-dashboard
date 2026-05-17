@@ -1,6 +1,10 @@
 const pool = require('../config/db');
+const { maybeUpdateFirmwareVersion } = require('./firmware');
 
 async function handleSmartlamp(device, data, buffer) {
+  // Persist firmware version on every well-formed payload (Req 9.2).
+  await maybeUpdateFirmwareVersion(device, data);
+
   if (data.power !== undefined) {
     if (data.power !== buffer.lastPower) {
       const logEntry = { event: "Power Switched", status: data.power };

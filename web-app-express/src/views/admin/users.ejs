@@ -1,0 +1,142 @@
+<%
+  function sortLink(col, label) {
+    const newDir = (sortCol === col && sortDir === 'ASC') ? 'desc' : 'asc';
+    let icon = '';
+    if (sortCol === col) { icon = sortDir === 'ASC' ? ' ^' : ' v'; }
+    return `<a href="?search=${encodeURIComponent(search)}&sort=${col}&dir=${newDir}" class="hover:text-accent-green transition">${label}${icon}</a>`;
+  }
+%>
+<%- include('../partials/header', { pageTitle: 'Admin - User Management', bodyClass: 'bg-gray-50 text-gray-900 min-h-screen font-sans pb-20' }) %>
+<div class="max-w-7xl mx-auto px-6 py-10">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+    <div>
+      <nav class="flex text-sm text-gray-500 mb-2 gap-2 font-semibold">
+        <a href="/dashboard" class="hover:text-accent-green">Dashboard</a><span>/</span><span class="text-gray-900">Admin Panel</span>
+      </nav>
+      <h1 class="text-4xl font-extrabold tracking-tight">User Management</h1>
+    </div>
+    <div class="flex gap-4">
+      <a href="/admin/users" class="bg-accent-green text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-900/10 transition">Users</a>
+      <a href="/admin/devices" class="bg-white text-gray-600 hover:text-accent-green px-6 py-2.5 rounded-xl font-bold border border-gray-200 transition">Devices</a>
+      <a href="/logout" class="bg-white text-red-500 hover:text-red-700 px-6 py-2.5 rounded-xl font-bold border border-gray-200 transition">Logout</a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+    <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+      <form method="GET" class="relative w-full md:w-96">
+        <input type="hidden" name="sort" value="<%= sortCol %>">
+        <input type="hidden" name="dir" value="<%= sortDir.toLowerCase() %>">
+        <input type="text" name="search" value="<%= search %>" placeholder="Search users or roles..." class="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-accent-green/20 focus:border-accent-green outline-none transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </form>
+      <div class="text-sm text-gray-500 font-medium">Showing <%= shownCount %> of <%= totalRows %> users</div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-gray-50/50">
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider"><%- sortLink('user_id', 'User ID') %></th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider"><%- sortLink('user_name', 'Username') %></th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider"><%- sortLink('role', 'Role') %></th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center"><%- sortLink('owned_count', 'Devices (Owned/Shared)') %></th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <% users.forEach(u => { %>
+            <tr class="hover:bg-gray-50/50 transition-colors">
+              <td class="px-6 py-4 text-sm font-mono text-gray-400">#<%= u.user_id %></td>
+              <td class="px-6 py-4"><span class="text-sm font-bold text-gray-900"><%= u.user_name %></span></td>
+              <td class="px-6 py-4">
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider <%= u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' %>"><%= u.role %></span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                <span class="text-sm font-semibold text-gray-700"><%= u.owned_count %></span>
+                <span class="text-gray-300 mx-1">/</span>
+                <span class="text-sm font-semibold text-gray-500"><%= u.shared_count %></span>
+              </td>
+              <td class="px-6 py-4 text-right space-x-2">
+                <button type="button" data-user-id="<%= u.user_id %>" data-user-name="<%= u.user_name %>" data-role="<%= u.role %>" onclick="openRoleModal(this)" class="text-xs font-bold text-accent-green hover:underline">Edit Role</button>
+                <% if (u.user_id !== currentAdminId) { %>
+                  <button type="button" data-user-id="<%= u.user_id %>" data-user-name="<%= u.user_name %>" onclick="confirmDelete(this)" class="text-xs font-bold text-red-500 hover:underline">Delete</button>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <% if (totalPages > 1) { %>
+      <div class="p-6 border-t border-gray-100 flex justify-center gap-2">
+        <% for (let i = 1; i <= totalPages; i++) { %>
+          <a href="?search=<%= encodeURIComponent(search) %>&sort=<%= sortCol %>&dir=<%= sortDir.toLowerCase() %>&page=<%= i %>" class="px-4 py-2 rounded-xl text-sm font-bold <%= page === i ? 'bg-accent-green text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' %> transition"><%= i %></a>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<div id="roleModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" onclick="closeRoleModal()"></div>
+  <div class="flex min-h-full items-center justify-center p-4">
+    <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+      <h3 class="text-2xl font-bold mb-2">Change User Role</h3>
+      <p id="roleModalUser" class="text-gray-500 text-sm mb-6"></p>
+      <form method="POST" action="/admin/users">
+        <input type="hidden" name="user_id" id="roleModalUserId">
+        <input type="hidden" name="change_role" value="1">
+        <div class="space-y-4">
+          <label class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition has-[:checked]:border-accent-green has-[:checked]:bg-green-50">
+            <input type="radio" name="role" value="user" id="roleUser" class="hidden">
+            <div class="flex-1">
+              <p class="font-bold">Regular User</p>
+              <p class="text-xs text-gray-500">Can only manage their own or shared devices.</p>
+            </div>
+          </label>
+          <label class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition has-[:checked]:border-purple-600 has-[:checked]:bg-purple-50">
+            <input type="radio" name="role" value="admin" id="roleAdmin" class="hidden">
+            <div class="flex-1">
+              <p class="font-bold text-purple-700">Administrator</p>
+              <p class="text-xs text-gray-500">Full system access, manage all users and devices.</p>
+            </div>
+          </label>
+        </div>
+        <div class="mt-8 flex gap-3">
+          <button type="submit" class="flex-1 bg-accent-green text-white font-bold py-3 rounded-xl hover:bg-green-700 transition">Save Changes</button>
+          <button type="button" onclick="closeRoleModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<form id="deleteForm" method="POST" action="/admin/users" class="hidden">
+  <input type="hidden" name="user_id" id="deleteUserId">
+  <input type="hidden" name="delete_user" value="1">
+</form>
+
+<script>
+  function openRoleModal(button) {
+    const id = button.dataset.userId;
+    const name = button.dataset.userName;
+    const role = button.dataset.role;
+    document.getElementById('roleModalUserId').value = id;
+    document.getElementById('roleModalUser').innerText = 'Updating role for user: ' + name;
+    document.getElementById('role' + role.charAt(0).toUpperCase() + role.slice(1)).checked = true;
+    document.getElementById('roleModal').classList.remove('hidden');
+  }
+  function closeRoleModal() { document.getElementById('roleModal').classList.add('hidden'); }
+  function confirmDelete(button) {
+    const id = button.dataset.userId;
+    const name = button.dataset.userName;
+    if (confirm("Are you sure you want to delete user '" + name + "'? This action cannot be undone and will delete all their owned devices.")) {
+      document.getElementById('deleteUserId').value = id;
+      document.getElementById('deleteForm').submit();
+    }
+  }
+</script>
+
+<%- include('../partials/footer') %>

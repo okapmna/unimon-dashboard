@@ -1,0 +1,70 @@
+<%- include('../partials/header', { pageTitle: 'Admin - Device Access', bodyClass: 'bg-gray-50 text-gray-900 min-h-screen font-sans pb-20' }) %>
+<div class="max-w-5xl mx-auto px-6 py-10">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+    <div>
+      <nav class="flex text-sm text-gray-500 mb-2 gap-2 font-semibold">
+        <a href="/dashboard" class="hover:text-accent-green">Dashboard</a><span>/</span>
+        <a href="/admin/devices" class="hover:text-accent-green">Devices</a><span>/</span>
+        <span class="text-gray-900">Access</span>
+      </nav>
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight"><%= device.device_name %></h1>
+      <p class="text-sm text-gray-500 font-mono mt-1">SN: <%= device.serial_number || '—' %></p>
+    </div>
+    <div class="flex gap-4">
+      <a href="/admin/devices" class="bg-white text-gray-600 hover:text-accent-green px-6 py-2.5 rounded-xl font-bold border border-gray-200 transition">Back</a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-gray-50/50">
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">User ID</th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Username</th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Access Type</th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Granted At</th>
+            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr class="hover:bg-gray-50/50">
+            <td class="px-6 py-4 text-sm font-mono text-gray-400">#<%= owner.user_id %></td>
+            <td class="px-6 py-4 text-sm font-bold text-gray-900"><%= owner.user_name %></td>
+            <td class="px-6 py-4">
+              <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">owner</span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-500">—</td>
+            <td class="px-6 py-4 text-right"><span class="text-xs text-gray-400">N/A</span></td>
+          </tr>
+          <% accessRows.forEach(function(row) { %>
+            <tr class="hover:bg-gray-50/50">
+              <td class="px-6 py-4 text-sm font-mono text-gray-400">#<%= row.user_id %></td>
+              <td class="px-6 py-4 text-sm font-bold text-gray-900"><%= row.user_name %></td>
+              <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700"><%= row.access_type %></span>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-600"><%= row.granted_at ? new Date(row.granted_at).toLocaleString() : '—' %></td>
+              <td class="px-6 py-4 text-right">
+                <% if (row.access_type === 'viewer') { %>
+                  <form method="POST" action="/admin/devices/<%= device.device_id %>/access/revoke" onsubmit="return confirm('Cabut akses untuk <%= row.user_name %>?');" class="inline">
+                    <input type="hidden" name="viewer_user_id" value="<%= row.user_id %>">
+                    <button type="submit" class="bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">Cabut Akses</button>
+                  </form>
+                <% } else { %>
+                  <span class="text-xs text-gray-400">—</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% if (accessRows.length === 0) { %>
+      <div class="p-10 text-center text-gray-500">
+        Tidak ada user lain yang memiliki akses
+      </div>
+    <% } %>
+  </div>
+</div>
+<%- include('../partials/footer') %>

@@ -4,10 +4,14 @@
   "description": "Background worker to sync MQTT to MariaDB",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "mqtt": "^5.0.0",
     "mysql2": "^3.9.0"
+  },
+  "devDependencies": {
+    "fast-check": "^3.22.0"
   }
 }
