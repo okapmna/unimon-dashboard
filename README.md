@@ -18,21 +18,21 @@ Follow these steps to set up the dashboard in your local environment:
 Ensure you have **Docker** and **Docker Compose** installed on your system.
 
 ### 2. Environment Configuration
-Copy the `.env.example` file to `.env` inside the `src` directory:
+Copy the `.env.example` file to `.env` inside the `app` directory:
 ```bash
-cp src/.env.example src/.env
+cp app/.env.example app/.env
 ```
 *Make sure the database configuration in `.env` matches the one in `docker-compose.yml`.*
 
 ### 3. Run Containers
-Build and start all services (Nginx, PHP, MariaDB, phpMyAdmin, and MQTT Worker):
+Build and start all services (Express App, MariaDB, and phpMyAdmin):
 ```bash
 docker compose up -d --build
 ```
 
 ### 4. Database Initialization
 1. Open **phpMyAdmin** at `http://localhost:8082`.
-2. Log in with user: `root` and password: `rootpassword` (or as configured in `.env`).
+2. Log in with user: `root` and password: `rootpassword` (or as configured in `docker-compose.yml`).
 3. Import the `database/unimq.sql` file into the `unimq` database.
    *Note: Ensure the `device_logs` table is present to enable history features.*
 
@@ -40,10 +40,10 @@ docker compose up -d --build
 Open your browser and navigate to:
 `http://localhost:8080`
 
-## Monitoring Background Worker
-To view the background data logging activity in real-time, use the following command:
+## Monitoring Logs and Background Worker
+To view the application and MQTT worker activity in real-time, use the following command:
 ```bash
-docker logs -f mqtt_background_worker
+docker logs -f unimon_app
 ```
 
 ## Preview
