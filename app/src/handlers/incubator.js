@@ -1,14 +1,43 @@
 const pool = require('../config/db');
 
 async function handleIncubator(device, data, buffer) {
-  let hasData = false;
-  if (data.temperature !== undefined) {
-    buffer.temps.push(parseFloat(data.temperature));
-    hasData = true;
+  // Inisialisasi lastTemp dan lastHum jika belum ada
+  if (buffer.lastTemp === undefined) {
+    buffer.lastTemp = parseFloat(data.temperature) || 0;
   }
-  if (data.humidity !== undefined) {
-    buffer.hums.push(parseFloat(data.humidity));
+  if (buffer.lastHum === undefined) {
+    buffer.lastHum = parseFloat(data.humidity) || 0;
+  }
+
+  let hasData = false;
+  let saveTriggered = false;
+  let currentTemp = 0;
+  let currentHum = 0;
+
+  if (data.temperature !== undefined) {
+    currentTemp = parseFloat(data.temperature);
+    buffer.temps.push(currentTemp);
     hasData = true;
+
+    // Cek kondisi perubahan drastis suhu atau suhu tinggi
+    const tempDiff = Math.abs(currentTemp - buffer.lastTemp);
+    if (tempDiff >= 1 || currentTemp > 38) {
+      saveTriggered = true;
+      buffer.lastTemp = currentTemp;
+    }
+  }
+  
+  if (data.humidity !== undefined) {
+    currentHum = parseFloat(data.humidity);
+    buffer.hums.push(currentHum);
+    hasData = true;
+
+    // Cek kondisi perubahan drastis kelembapan
+    const humDiff = Math.abs(currentHum - buffer.lastHum);
+    if (humDiff >= 10) {
+      saveTriggered = true;
+      buffer.lastHum = currentHum;
+    }
   }
   
   if (hasData) {
@@ -18,7 +47,8 @@ async function handleIncubator(device, data, buffer) {
   }
   
   const now = Date.now();
-  if (now - buffer.lastSave >= 300000) { // 5 Minutes
+  // Simpan jika 5 menit ATAU kondisi suhu/kelembapan terpenuhi
+  if ((now - buffer.lastSave >= 300000) || saveTriggered) { 
     if (buffer.temps.length > 0 || buffer.hums.length > 0) {
       
       const getStats = (arr) => {
@@ -38,15 +68,15 @@ async function handleIncubator(device, data, buffer) {
         temp: getStats(buffer.temps),
         hum: getStats(buffer.hums),
         samples: buffer.temps.length,
-        period: "5m"
+        period: saveTriggered ? "drastic_change" : "5m"
       };
 
       await pool.query('INSERT INTO device_logs (device_id, data) VALUES (?, ?)', 
         [device.device_id, JSON.stringify(summary)]);
       
-      console.log(`[Device ${device.device_id}] LOG SAVED TO DATABASE:`, JSON.stringify(summary));
+      console.log(`[Device ${device.device_id}] LOG SAVED TO DATABASE (${summary.period}):`, JSON.stringify(summary));
     } else {
-      console.log(`[Device ${device.device_id}] 5 minutes passed, but no valid samples were collected.`);
+      console.log(`[Device ${device.device_id}] Periodic save triggered, but no valid samples were collected.`);
     }
     
     buffer.temps = [];
