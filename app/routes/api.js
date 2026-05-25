@@ -15,9 +15,15 @@ router.get('/devices', authenticateToken, DeviceController.apiGetDevices);
 router.post('/devices/update', authenticateToken, async (req, res) => {
     const { device_id, device_name, device_type, broker_url, broker_port, mq_user, mq_pass } = req.body;
     try {
+        const [ownerCheck] = await pool.query(
+            "SELECT 1 FROM device_user WHERE device_id = ? AND user_id = ? AND role = 'owner'",
+            [device_id, req.user.user_id]
+        );
+        if (ownerCheck.length === 0) return res.status(403).json({ error: 'Only owner can update device' });
+        
         const [result] = await pool.query(
-            "UPDATE device SET device_name=?, device_type=?, broker_url=?, broker_port=?, mq_user=?, mq_pass=? WHERE device_id=? AND user_id=?",
-            [device_name, device_type, broker_url, broker_port, mq_user, mq_pass, device_id, req.user.user_id]
+            "UPDATE device SET device_name=?, device_type=?, broker_url=?, broker_port=?, mq_user=?, mq_pass=? WHERE device_id=?",
+            [device_name, device_type, broker_url, broker_port, mq_user, mq_pass, device_id]
         );
         if (result.affectedRows === 0) return res.status(404).json({ error: 'Device not found' });
         res.json({ message: 'Device updated' });
@@ -30,6 +36,12 @@ router.post('/devices/update', authenticateToken, async (req, res) => {
 router.get('/devices/:id/logs', authenticateToken, async (req, res) => {
     const device_id = req.params.id;
     try {
+        const [accessCheck] = await pool.query(
+            "SELECT 1 FROM device_user WHERE device_id = ? AND user_id = ?",
+            [device_id, req.user.user_id]
+        );
+        if (accessCheck.length === 0) return res.status(403).json({ error: 'Access denied' });
+        
         const [logs] = await pool.query("SELECT data, created_at FROM device_logs WHERE device_id = ? ORDER BY created_at DESC LIMIT 50", [device_id]);
         const processedLogs = logs.map(row => ({ created_at: row.created_at, data: JSON.parse(row.data) }));
         res.json(processedLogs);
@@ -37,5 +49,9 @@ router.get('/devices/:id/logs', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Fetch logs failed' });
     }
 });
+
+// API: Share/Unshare
+router.post('/devices/:id/share', authenticateToken, DeviceController.apiShareDevice);
+router.delete('/devices/:id/share/:userId', authenticateToken, DeviceController.apiUnshareDevice);
 
 module.exports = router;

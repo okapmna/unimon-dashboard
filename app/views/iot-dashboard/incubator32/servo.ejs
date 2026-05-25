@@ -1,0 +1,310 @@
+<%- include('../../partials/header') %>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <div id="data-container" data-broker-url="<%= device_data.broker_url %>"
+        data-broker-port="<%= device_data.broker_port %>" data-mq-user="<%= device_data.mq_user %>"
+        data-mq-pass="<%= device_data.mq_pass %>" data-topic-sub="<%= topic_sub %>" data-topic-pub="<%= topic_pub %>"
+        data-is-ssl="<%= (device_data.broker_port == 8883 || device_data.broker_port == 8884) ? 'true' : 'false' %>"
+        data-role="<%= role %>"
+        data-device-name="<%= device_data.device_name %>"
+        data-incubator-id="<%= device_data.device_id %>" style="display:none">
+    </div>
+
+    <style>
+        .back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 50;
+        }
+        @media (min-width: 640px) {
+            .back-btn {
+                top: 20px;
+                left: 20px;
+            }
+        }
+        .back-btn a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 10px 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .back-btn a span {
+            display: none;
+        }
+        @media (min-width: 640px) {
+            .back-btn a span {
+                display: inline;
+            }
+        }
+
+        .mode-btn {
+            transition: all 0.2s ease;
+        }
+        .mode-btn.active {
+            background: #C69C6D;
+            color: #000;
+            border-color: #C69C6D;
+        }
+    </style>
+
+    <div class="back-btn">
+        <a href="/incubator/<%= device_data.device_id %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18">
+                </path>
+            </svg>
+            <span class="font-semibold">Back</span>
+        </a>
+    </div>
+
+    <div class="max-w-2xl mx-auto w-full mt-10 sm:mt-0">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 sm:mb-12 gap-4 sm:gap-6 border-b border-gray-300 pb-4 sm:pb-8">
+            <div>
+                <p class="text-xs sm:text-sm font-semibold tracking-wider text-gray-600 uppercase mb-1">
+                    <%= device_data.device_name %>
+                </p>
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-black">Servo Control</h1>
+                <p id="status" class="mt-2 text-xs sm:text-sm font-medium text-orange-600">Status: Connecting...</p>
+            </div>
+        </header>
+
+        <div class="flex flex-col gap-6">
+            <!-- Servo Mode -->
+            <div class="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
+                <div class="flex items-center gap-2 sm:gap-3 mb-5 sm:mb-6 font-bold uppercase tracking-wide text-xs sm:text-sm">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                    </svg>
+                    <h2>SERVO MODE</h2>
+                </div>
+                <p class="text-xs sm:text-sm text-gray-500 mb-4">Pilih mode pergerakan servo</p>
+                <div class="flex gap-3 sm:gap-4">
+                    <button id="mode-jadwal" onclick="setServoMode(0)"
+                        class="mode-btn flex-1 border-2 border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center cursor-pointer hover:border-gray-300">
+                        <div class="mb-2 flex justify-center">
+                            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div class="font-bold text-sm sm:text-base">JADWAL</div>
+                        <div class="text-xs text-gray-400 mt-1">Bergerak per jam</div>
+                    </button>
+                    <button id="mode-swing" onclick="setServoMode(1)"
+                        class="mode-btn flex-1 border-2 border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center cursor-pointer hover:border-gray-300">
+                        <div class="mb-2 flex justify-center">
+                            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </div>
+                        <div class="font-bold text-sm sm:text-base">SWING</div>
+                        <div class="text-xs text-gray-400 mt-1">Bergerak terus</div>
+                    </button>
+                </div>
+                <div id="current-mode-display" class="mt-4 text-xs sm:text-sm text-gray-500 text-center">
+                    Mode saat ini: <span id="current-mode-text" class="font-bold text-gray-800">--</span>
+                </div>
+            </div>
+
+            <!-- Servo Interval -->
+            <div class="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[10px_10px_20px_rgba(0,0,0,0.05)] border border-white hover:shadow-2xl hover:-translate-y-1 hover:border-gray-100 transition-all duration-300">
+                <div class="flex items-center gap-2 sm:gap-3 mb-5 sm:mb-6 font-bold uppercase tracking-wide text-xs sm:text-sm">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
+                    </svg>
+                    <h2>SERVO INTERVAL</h2>
+                </div>
+                <p class="text-xs sm:text-sm text-gray-500 mb-4">Interval waktu pergerakan servo (jam)</p>
+                <div class="flex items-center justify-center gap-4 sm:gap-6">
+                    <button onclick="changeInterval(-1)"
+                        class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#386628] text-white flex items-center justify-center font-bold text-lg sm:text-xl hover:bg-[#2d5221] transition-colors">-</button>
+                    <div class="text-center">
+                        <span id="interval-value" class="text-4xl sm:text-5xl font-bold text-gray-800">--</span>
+                        <span class="text-lg sm:text-xl font-bold text-gray-500 ml-1">jam</span>
+                    </div>
+                    <button onclick="changeInterval(1)"
+                        class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#386628] text-white flex items-center justify-center font-bold text-lg sm:text-xl hover:bg-[#2d5221] transition-colors">+</button>
+                </div>
+                <div class="mt-4 text-center">
+                    <button id="apply-interval" onclick="applyInterval()"
+                        class="bg-black text-white font-semibold px-6 py-2 rounded-full text-xs sm:text-sm hover:bg-gray-800 transition-colors">
+                        Terapkan Interval
+                    </button>
+                </div>
+                <div id="current-interval-display" class="mt-3 text-xs sm:text-sm text-gray-500 text-center">
+                    Interval saat ini: <span id="current-interval-text" class="font-bold text-gray-800">--</span> jam
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+                    </svg>
+                    <div class="text-xs sm:text-sm text-amber-800">
+                        <p class="font-bold mb-1">Informasi</p>
+                        <p><strong>Mode JADWAL:</strong> Servo bergerak setiap interval jam yang ditentukan.</p>
+                        <p><strong>Mode SWING:</strong> Servo bergerak terus menerus (interval diabaikan).</p>
+                        <p class="mt-1">Interval minimal adalah 1 jam.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('data-container');
+        const mqttConfig = {
+            host: container.dataset.brokerUrl,
+            port: parseInt(container.dataset.brokerPort),
+            username: container.dataset.mqUser,
+            password: container.dataset.mqPass,
+            useSSL: container.dataset.isSsl === 'true',
+            topics: {
+                subscribe: container.dataset.topicSub,
+                publish: container.dataset.topicPub
+            }
+        };
+
+        const userRole = container.dataset.role;
+        const isViewer = userRole === 'viewer';
+
+        let currentMode = null;
+        let currentInterval = null;
+        let pendingInterval = 1;
+
+        function initUi() {
+            if (isViewer) {
+                document.querySelectorAll('button').forEach(b => {
+                    if (!b.closest('#current-mode-display') && !b.closest('#current-interval-display') && !b.id.includes('current-')) {
+                        b.disabled = true;
+                        b.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                });
+            }
+        }
+
+        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
+        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
+        const clientOptions = {
+            clientId: 'web_servo_' + Math.random().toString(16).substr(2, 8),
+            username: mqttConfig.username,
+            password: mqttConfig.password,
+            reconnectPeriod: 3000,
+            keepalive: 30,
+            clean: true
+        };
+
+        const client = mqtt.connect(brokerUrl, clientOptions);
+
+        client.on('connect', () => {
+            updateStatus('Connected (Online)', 'text-green-600');
+            client.subscribe(mqttConfig.topics.subscribe);
+            client.publish(mqttConfig.topics.publish, 'dev_getinfo');
+        });
+
+        client.on('reconnect', () => {
+            updateStatus('Reconnecting...', 'text-orange-500');
+        });
+
+        client.on('close', () => {
+            updateStatus('Disconnected!', 'text-red-600');
+        });
+
+        client.on('error', (err) => {
+            updateStatus('Connection Error', 'text-red-600');
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                if (data.servo_mode !== undefined) {
+                    currentMode = parseInt(data.servo_mode);
+                    updateModeUI(currentMode);
+                }
+                if (data.servo_interval !== undefined) {
+                    currentInterval = parseInt(data.servo_interval);
+                    updateIntervalUI(currentInterval);
+                    pendingInterval = currentInterval;
+                }
+            } catch (e) {}
+        });
+
+        function setServoMode(mode) {
+            if (isViewer || !client.connected) return;
+            const payload = JSON.stringify({ servo_mode: mode });
+            client.publish(mqttConfig.topics.publish, payload);
+            currentMode = mode;
+            updateModeUI(mode);
+            showToast('Mengubah mode ke ' + (mode === 0 ? 'JADWAL' : 'SWING'));
+        }
+
+        function changeInterval(delta) {
+            if (isViewer) return;
+            pendingInterval = Math.max(1, pendingInterval + delta);
+            document.getElementById('interval-value').innerText = pendingInterval;
+        }
+
+        function applyInterval() {
+            if (isViewer || !client.connected) return;
+            const payload = JSON.stringify({ servo_interval: pendingInterval });
+            client.publish(mqttConfig.topics.publish, payload);
+            currentInterval = pendingInterval;
+            updateIntervalUI(currentInterval);
+            showToast('Interval diubah ke ' + pendingInterval + ' jam');
+        }
+
+        function updateModeUI(mode) {
+            document.getElementById('current-mode-text').innerText = mode === 0 ? 'JADWAL' : 'SWING';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            if (mode === 0) document.getElementById('mode-jadwal').classList.add('active');
+            else document.getElementById('mode-swing').classList.add('active');
+        }
+
+        function updateIntervalUI(interval) {
+            document.getElementById('current-interval-text').innerText = interval;
+            document.getElementById('interval-value').innerText = interval;
+        }
+
+        function updateStatus(text, colorClass) {
+            const s = document.getElementById('status');
+            s.innerText = 'Status: ' + text;
+            s.className = 'mt-2 text-xs sm:text-sm font-medium ' + colorClass;
+        }
+
+        function showToast(msg) {
+            const existing = document.querySelector('.toast-servo');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = 'toast-servo fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-medium shadow-lg z-50 animate-bounce';
+            toast.style.animation = 'fadeInUp 0.3s ease';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        initUi();
+
+        // Inject toast animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translate(-50%, 10px); }
+                to { opacity: 1; transform: translate(-50%, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    <%- include('../../partials/footer') %>

@@ -1,5 +1,7 @@
 # Ignore all files with spesific format
 *.log
 .agents
+backup*.sql
 *.env
 node_modules/
+dashboard_plan.md
