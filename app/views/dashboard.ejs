@@ -29,8 +29,55 @@
             </button>
         </div>
 
+        <style>
+            .filter-dropdown { position: relative; }
+            .filter-dropdown-menu {
+                position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%;
+                background: #fff; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+                overflow: hidden; z-index: 100;
+                opacity: 0; transform: translateY(-8px) scale(0.97);
+                pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+            }
+            .filter-dropdown-menu.open {
+                opacity: 1; transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+            .filter-dropdown-menu button {
+                display: block; width: 100%; text-align: left;
+                padding: 10px 18px; font-size: 0.875rem; font-weight: 600; color: #333;
+                background: transparent; border: none; cursor: pointer;
+                transition: background 0.15s ease; white-space: nowrap;
+            }
+            .filter-dropdown-menu button:hover { background: #f3f4f6; }
+            .filter-dropdown-menu button.active { background: #386628; color: #fff; }
+            .filter-dropdown-menu button.active:hover { background: #2e5910; }
+        </style>
+
+        <!-- Filter Bar -->
+        <div class="mb-6 flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                <input type="text" id="filterSearch" placeholder="Cari device..." class="block w-full rounded-xl border border-gray-200 shadow-sm text-sm py-2.5 pl-10 pr-4 bg-white focus:outline-none focus:ring-0">
+            </div>
+            <div class="filter-dropdown" id="filterTypeDropdown">
+                <button onclick="toggleFilterDropdown(event)" id="filterTypeBtn" class="flex items-center gap-2 w-full rounded-xl border border-gray-200 shadow-sm text-sm py-2.5 px-4 bg-white min-w-[140px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                    <span id="filterTypeLabel" class="flex-1 text-left">Semua Tipe</span>
+                    <svg id="filterTypeArrow" class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="filter-dropdown-menu" id="filterTypeMenu">
+                    <button onclick="selectFilterType('', 'Semua Tipe', this)" class="active">Semua Tipe</button>
+                    <button onclick="selectFilterType('inkubator', 'Inkubator', this)">Inkubator</button>
+                    <button onclick="selectFilterType('smartlamp', 'Smart Lamp', this)">Smart Lamp</button>
+                </div>
+            </div>
+        </div>
+
         <% if (devices && devices.length > 0) { %>
-            <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 md:gap-8">
+            <div id="deviceGrid" class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 md:gap-8">
                 <% devices.forEach(device => { %>
                     <% const id_val = device.device_id; %>
                     <% const displayName = device.displayName; %>
@@ -39,7 +86,7 @@
                     <% const current_icon = device.current_icon; %>
                     <% const badge_color = device.badge_color; %>
 
-                    <div class="group relative bg-card-white rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:shadow-gray-200/80 transition-all duration-300 border border-transparent hover:border-accent-green/20 transform hover:-translate-y-1">
+                    <div class="device-card group relative bg-card-white rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:shadow-gray-200/80 transition-all duration-300 border border-transparent hover:border-accent-green/20 transform hover:-translate-y-1" data-name="<%= displayName.toLowerCase() %>" data-type="<%= (device.device_type.includes('inkubator') ? 'inkubator' : device.device_type.includes('lamp') ? 'smartlamp' : 'other') %>">
 
                         <div class="absolute top-3 right-3 sm:top-6 sm:right-6 z-20">
                             <button type="button" onclick="toggleDeviceMenu(event, 'menu-<%= id_val %>')" class="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-dark-text hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent-green/50" aria-label="Device Options">
@@ -57,6 +104,16 @@
                                     </svg>
                                     Edit Device
                                 </button>
+                                <% if (device.role === 'owner') { %>
+                                <button type="button"
+                                    onclick="event.preventDefault(); openShareModal(<%= id_val %>); closeAllDeviceMenus();"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-600 hover:text-dark-text hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-accent-green" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M15 8a3 3 0 10-2.977-2.633l-6.94 3.47a3 3 0 100 4.326l6.94 3.47a3 3 0 10.895-1.789l-6.94-3.47a3.027 3.027 0 000-.748l6.94-3.47A3 3 0 0015 8z"/>
+                                    </svg>
+                                    Share Device
+                                </button>
+                                <% } %>
                                 <div class="border-t border-gray-100 my-1"></div>
                                 <form method="POST" onsubmit="return confirm('Hapus device: <%= displayName %>?');">
                                     <input type="hidden" name="nama_kolom_target" value="<%= primary_key %>">
@@ -79,6 +136,9 @@
                                     </div>
                                     <span class="<%= badge_color %> px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-xs font-bold tracking-wider uppercase truncate max-w-[80px] sm:max-w-full">
                                         <%= device.device_type.replace('esp32-', '') %>
+                                    </span>
+                                    <span class="<%= device.role === 'owner' ? 'bg-amber-100 text-amber-700' : device.role === 'operator' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' %> px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[10px] font-bold uppercase shrink-0">
+                                        <%= device.role %>
                                     </span>
                                 </div>
                                 <h3 class="text-base sm:text-2xl md:text-3xl font-bold text-dark-text mb-1 pr-4 sm:pr-8 group-hover:text-accent-green transition-colors line-clamp-2">
@@ -104,6 +164,15 @@
                         </a>
                     </div>
                 <% }); %>
+            </div>
+            <div id="filterEmptyMessage" class="hidden flex flex-col items-center justify-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <p class="text-lg text-gray-500 font-medium">Tidak ada device yang cocok dengan filter.</p>
+                <button onclick="document.getElementById('filterSearch').value='';document.querySelector('#filterTypeMenu .active').classList.remove('active');document.querySelector('#filterTypeMenu button:first-child').classList.add('active');selectFilterType('', 'Semua Tipe', document.querySelector('#filterTypeMenu button:first-child'))" class="mt-4 text-accent-green font-bold hover:underline">Reset Filter</button>
             </div>
         <% } else { %>
             <div class="flex flex-col items-center justify-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200">
@@ -219,8 +288,138 @@
         </div>
     </div>
 
+    <div id="shareModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="share-modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onclick="closeShareModal()"></div>
+        <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-100">
+                <div class="bg-white px-8 py-8">
+                    <div class="mb-6">
+                        <h3 class="text-2xl font-bold leading-6 text-gray-900" id="share-modal-title">Share Device</h3>
+                        <p class="mt-2 text-sm text-gray-500">Bagikan akses device ke user lain.</p>
+                    </div>
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Username</label>
+                            <input type="text" id="share_username" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-accent-green focus:ring-accent-green sm:text-sm py-3 px-4 bg-gray-50" placeholder="Masukkan username tujuan" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Role Akses</label>
+                            <select id="share_role" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-accent-green focus:ring-accent-green sm:text-sm py-3 px-4 bg-gray-50">
+                                <option value="viewer">Viewer — Hanya bisa melihat data</option>
+                                <option value="operator">Operator — Bisa melihat dan mengontrol</option>
+                            </select>
+                        </div>
+                        <div class="pt-4 flex flex-col gap-3">
+                            <button type="button" onclick="submitShare()" id="share_submit_btn" class="w-full justify-center rounded-xl bg-accent-green px-3 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-[#2e5910] transition-all">Bagikan Device</button>
+                            <button type="button" onclick="closeShareModal()" class="w-full justify-center rounded-xl bg-white px-3 py-3.5 text-sm font-bold text-gray-500 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all">Batal</button>
+                        </div>
+                    </div>
+                    <hr class="my-6 border-gray-100">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3">User yang memiliki akses</h4>
+                        <div id="shared_users_list" class="space-y-2">
+                            <p class="text-sm text-gray-400">Memuat...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Modal Add
+        let shareDeviceId = null;
+
+        // Share Modal
+        function openShareModal(deviceId) {
+            shareDeviceId = deviceId;
+            document.getElementById('share_username').value = '';
+            document.getElementById('share_role').value = 'viewer';
+            document.getElementById('shareModal').classList.remove('hidden');
+            loadSharedUsers(deviceId);
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+            shareDeviceId = null;
+        }
+
+        async function loadSharedUsers(deviceId) {
+            const listEl = document.getElementById('shared_users_list');
+            listEl.innerHTML = '<p class="text-sm text-gray-400">Memuat...</p>';
+            try {
+                const res = await fetch('/devices/' + deviceId + '/users');
+                if (!res.ok) throw new Error('Gagal memuat');
+                const users = await res.json();
+                if (users.length === 0) {
+                    listEl.innerHTML = '<p class="text-sm text-gray-400">Belum ada user lain.</p>';
+                    return;
+                }
+                listEl.innerHTML = users.map(u => {
+                    const roleBadge = u.role === 'owner' ? 'bg-amber-100 text-amber-700' : u.role === 'operator' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                    const unshareBtn = u.role !== 'owner' ? `<button onclick="unshareUser(${deviceId}, ${u.user_id})" class="text-red-500 hover:text-red-700 text-xs font-semibold ml-2">Cabut</button>` : '';
+                    return `<div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-dark-text">${u.user_name}</span>
+                            <span class="${roleBadge} px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">${u.role}</span>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            ${u.shared_by_name ? 'oleh ' + u.shared_by_name : ''}
+                            ${unshareBtn}
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                listEl.innerHTML = '<p class="text-sm text-red-500">Gagal memuat data user.</p>';
+            }
+        }
+
+        async function submitShare() {
+            const username = document.getElementById('share_username').value.trim();
+            const role = document.getElementById('share_role').value;
+            const btn = document.getElementById('share_submit_btn');
+
+            if (!username) {
+                alert('Masukkan username!');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Membagikan...';
+
+            try {
+                const res = await fetch('/devices/' + shareDeviceId + '/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ username, role })
+                });
+                if (res.redirected) {
+                    window.location.href = res.url;
+                } else {
+                    location.reload();
+                }
+            } catch (e) {
+                alert('Gagal share device');
+                btn.disabled = false;
+                btn.textContent = 'Bagikan Device';
+            }
+        }
+
+        async function unshareUser(deviceId, userId) {
+            if (!confirm('Cabut akses user ini?')) return;
+            try {
+                const res = await fetch('/devices/' + deviceId + '/share/' + userId, {
+                    method: 'DELETE'
+                });
+                if (res.redirected) {
+                    window.location.href = res.url;
+                } else {
+                    loadSharedUsers(deviceId);
+                }
+            } catch (e) {
+                alert('Gagal mencabut akses');
+            }
+        }
+
         function openModal() {
             document.getElementById('deviceModal').classList.remove('hidden');
         }
@@ -229,7 +428,6 @@
             document.getElementById('deviceModal').classList.add('hidden');
         }
 
-        // Modal Edit
         function openEditModal(deviceData) {
             document.getElementById('edit_device_id').value = deviceData.device_id;
             document.getElementById('edit_device_name').value = deviceData.device_name;
@@ -251,20 +449,20 @@
             if (evt.keyCode == 27) {
                 closeModal();
                 closeEditModal();
+                closeShareModal();
                 closeAllDeviceMenus();
             }
         };
 
-        // Menu Dropdown Logic
         function toggleDeviceMenu(event, menuId) {
             event.preventDefault();
             event.stopPropagation();
-            
+
             const menu = document.getElementById(menuId);
             const isClosed = menu.classList.contains('opacity-0');
-            
+
             closeAllDeviceMenus();
-            
+
             if (isClosed) {
                 menu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
                 menu.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
@@ -280,9 +478,71 @@
         }
 
         document.addEventListener('click', function(event) {
+            const isFilterDropdown = event.target.closest('.filter-dropdown');
             if (!event.target.closest('.device-dropdown') && !event.target.closest('button[onclick^="toggleDeviceMenu"]')) {
                 closeAllDeviceMenus();
             }
+            if (!isFilterDropdown) {
+                closeFilterDropdown();
+            }
         });
+
+        // Custom filter dropdown
+        let filterTypeValue = '';
+        const filterDropdownMenu = document.getElementById('filterTypeMenu');
+        const filterDropdownBtn = document.getElementById('filterTypeBtn');
+        const filterDropdownLabel = document.getElementById('filterTypeLabel');
+        const filterDropdownArrow = document.getElementById('filterTypeArrow');
+
+        function toggleFilterDropdown(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            filterDropdownMenu.classList.toggle('open');
+            filterDropdownArrow.style.transform = filterDropdownMenu.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+
+        function closeFilterDropdown() {
+            filterDropdownMenu.classList.remove('open');
+            filterDropdownArrow.style.transform = '';
+        }
+
+        function selectFilterType(value, label, btn) {
+            filterTypeValue = value;
+            filterDropdownLabel.textContent = label;
+            document.querySelectorAll('#filterTypeMenu button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            closeFilterDropdown();
+            filterDevices();
+        }
+
+        // Filter devices
+        const filterSearch = document.getElementById('filterSearch');
+        const deviceCards = document.querySelectorAll('.device-card');
+        const emptyMessage = document.getElementById('filterEmptyMessage');
+
+        function filterDevices() {
+            const searchTerm = filterSearch.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            deviceCards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                const type = card.getAttribute('data-type');
+                const matchName = !searchTerm || name.includes(searchTerm);
+                const matchType = !filterTypeValue || type === filterTypeValue;
+
+                if (matchName && matchType) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            if (emptyMessage) {
+                emptyMessage.style.display = visibleCount === 0 ? '' : 'none';
+            }
+        }
+
+        filterSearch.addEventListener('input', filterDevices);
     </script>
 <%- include('partials/footer') %>

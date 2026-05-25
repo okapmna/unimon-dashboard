@@ -9,6 +9,7 @@
         data-mq-pass="<%= device_data.mq_pass %>"
         data-topic-sub="<%= topic_sub %>"
         data-topic-pub="<%= topic_pub %>"
+        data-role="<%= role %>"
         data-is-ssl="<%= (device_data.broker_port == 8883 || device_data.broker_port == 8884) ? 'true' : 'false' %>"
         style="display:none">
     </div>
@@ -122,6 +123,7 @@
 
         let currentPower = 'OFF';
         let currentBrightness = 0;
+        const isViewer = container.dataset.role === 'viewer';
 
         // --- MQTT.js CONNECTION ---
         const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
@@ -193,6 +195,7 @@
         }
 
         function togglePower() {
+            if (isViewer) return;
             currentPower = (currentPower === 'OFF') ? 'ON' : 'OFF';
             updatePowerUI(currentPower);
             sendControl();
@@ -210,10 +213,16 @@
         }
 
         function updateBrightnessStep(step) {
+            if (isViewer) return;
             currentBrightness = Math.min(100, Math.max(0, parseInt(currentBrightness) + step));
             updateBrightnessUI(currentBrightness);
             sendControl();
         }
+
+        document.getElementById('brightness-slider').addEventListener('change', function() {
+            if (isViewer) return;
+            sendControl();
+        });
 
         function sendControl() {
             if (client.connected) {
