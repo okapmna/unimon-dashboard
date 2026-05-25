@@ -26,15 +26,14 @@ CREATE TABLE `device` (
   `mq_pass` varchar(20) DEFAULT NULL,
   `mq_user` varchar(20) DEFAULT NULL,
   `device_type` varchar(50) NOT NULL,
-  `user_id` int(10) NOT NULL,
   `device_name` varchar(50) NOT NULL,
   `broker_port` varchar(5) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_type`, `user_id`, `device_name`, `broker_port`) VALUES
-(14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 11, 'Inkubator Ternak 1', '8080'),
-(19, '000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'cihuyyy', 'esp32-inkubator', 11, 'Inkubator burung', '8884'),
-(20, '0000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'itsabirds', 'esp32-inkubator', 11, 'Inkubator burung', '8884');
+INSERT INTO `device` (`device_id`, `broker_url`, `mq_pass`, `mq_user`, `device_type`, `device_name`, `broker_port`) VALUES
+(14, 'test.mosquitto.org', '', '', 'esp32-inkubator', 'Inkubator Ternak 1', '8080'),
+(19, '000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'cihuyyy', 'esp32-inkubator', 'Inkubator burung', '8884'),
+(20, '0000000000000000.s1.eu.hivemq.cloud', '54321JJJ', 'itsabirds', 'esp32-inkubator', 'Inkubator burung', '8884');
 
 -- Table structure for `user_tokens`
 CREATE TABLE `user_tokens` (
@@ -53,8 +52,7 @@ ALTER TABLE `user`
 
 -- Indexes for `device`
 ALTER TABLE `device`
-  ADD PRIMARY KEY (`device_id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD PRIMARY KEY (`device_id`);
 
 -- Indexes for `user_tokens`
 ALTER TABLE `user_tokens`
@@ -73,10 +71,23 @@ ALTER TABLE `device`
 ALTER TABLE `user_tokens`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
--- Foreign Key Relationship
-ALTER TABLE `device`
-  ADD CONSTRAINT `device_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`);
+-- Junction table for device-user many-to-many relationship
+CREATE TABLE `device_user` (
+  `device_id` int(10) NOT NULL,
+  `user_id` int(10) NOT NULL,
+  `role` enum('owner', 'viewer', 'operator') NOT NULL DEFAULT 'viewer',
+  `shared_by` int(10) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`device_id`, `user_id`),
+  FOREIGN KEY (`device_id`) REFERENCES `device` (`device_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`shared_by`) REFERENCES `user` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+INSERT INTO `device_user` (`device_id`, `user_id`, `role`, `shared_by`, `created_at`)
+SELECT `device_id`, 11, 'owner', NULL, NOW() FROM `device`;
+
+-- Foreign Key Relationship
 ALTER TABLE `user_tokens`
   ADD CONSTRAINT `user_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE;
 

@@ -13,15 +13,21 @@ router.get('/logout', AuthController.logout);
 // Protected Routes (Web)
 router.get('/dashboard', checkWebAuth, DeviceController.getDashboard);
 router.post('/dashboard', checkWebAuth, DeviceController.handleDashboardPost);
+router.post('/devices/:id/share', checkWebAuth, DeviceController.shareDevice);
+router.delete('/devices/:id/share/:userId', checkWebAuth, DeviceController.unshareDevice);
+router.get('/devices/:id/users', checkWebAuth, DeviceController.getDeviceUsers);
 
-// View Device Details (Logic sementara masih simple, bisa dipindah ke controller nanti)
+// View Device Details
 router.get('/incubator/:id', checkWebAuth, async (req, res) => {
     try {
         const device_id = req.params.id;
-        const [rows] = await pool.query(
-            "SELECT d.* FROM device d JOIN user u ON d.user_id = u.user_id WHERE d.device_id = ? AND u.user_name = ?", 
-            [device_id, req.session.username]
-        );
+        const [rows] = await pool.query(`
+            SELECT d.*, du.role
+            FROM device d
+            JOIN device_user du ON d.device_id = du.device_id
+            JOIN user u ON du.user_id = u.user_id
+            WHERE d.device_id = ? AND u.user_name = ?
+        `, [device_id, req.session.username]);
         if (rows.length === 0) return res.redirect('/dashboard');
         
         const device_data = rows[0];
@@ -50,11 +56,11 @@ router.get('/incubator/:id', checkWebAuth, async (req, res) => {
             } catch (e) {}
         });
 
-        console.log('Chart Labels Debug:', chart_labels);
         res.render('iot-dashboard/incubator32/incubator', {
             page_title: device_data.device_name + ' - Control',
             body_class: 'p-6 md:p-12 min-h-screen flex flex-col font-sans text-gray-800',
             device_data,
+            role: device_data.role,
             topic_sub: 'incubator/' + device_id + '/data',
             topic_pub: 'incubator/' + device_id + '/con',
             chart_labels: chart_labels.reverse(),
@@ -70,19 +76,48 @@ router.get('/incubator/:id', checkWebAuth, async (req, res) => {
     }
 });
 
+router.get('/incubator/:id/servo', checkWebAuth, async (req, res) => {
+    try {
+        const device_id = req.params.id;
+        const [rows] = await pool.query(`
+            SELECT d.*, du.role
+            FROM device d
+            JOIN device_user du ON d.device_id = du.device_id
+            JOIN user u ON du.user_id = u.user_id
+            WHERE d.device_id = ? AND u.user_name = ?
+        `, [device_id, req.session.username]);
+        if (rows.length === 0) return res.redirect('/dashboard');
+        const device_data = rows[0];
+        res.render('iot-dashboard/incubator32/servo', {
+            page_title: device_data.device_name + ' - Servo Control',
+            body_class: 'p-6 md:p-12 min-h-screen flex flex-col font-sans text-gray-800',
+            device_data,
+            role: device_data.role,
+            topic_sub: 'incubator/' + device_id + '/data',
+            topic_pub: 'incubator/' + device_id + '/con'
+        });
+    } catch (e) {
+        res.redirect('/dashboard');
+    }
+});
+
 router.get('/smartlamp/:id', checkWebAuth, async (req, res) => {
     try {
         const device_id = req.params.id;
-        const [rows] = await pool.query(
-            "SELECT d.* FROM device d JOIN user u ON d.user_id = u.user_id WHERE d.device_id = ? AND u.user_name = ?", 
-            [device_id, req.session.username]
-        );
+        const [rows] = await pool.query(`
+            SELECT d.*, du.role
+            FROM device d
+            JOIN device_user du ON d.device_id = du.device_id
+            JOIN user u ON du.user_id = u.user_id
+            WHERE d.device_id = ? AND u.user_name = ?
+        `, [device_id, req.session.username]);
         if (rows.length === 0) return res.redirect('/dashboard');
         const device_data = rows[0];
         res.render('iot-dashboard/smartlamp32/smartlamp', {
             page_title: device_data.device_name + ' - Smart Lamp',
             body_class: 'p-6 sm:p-12 md:p-24 min-h-screen font-sans text-gray-900',
             device_data,
+            role: device_data.role,
             topic_sub: 'smartlamp/' + device_id + '/status',
             topic_pub: 'smartlamp/' + device_id + '/control'
         });
