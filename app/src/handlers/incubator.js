@@ -19,9 +19,8 @@ async function handleIncubator(device, data, buffer) {
     buffer.temps.push(currentTemp);
     hasData = true;
 
-    // Cek kondisi perubahan drastis suhu atau suhu tinggi
     const tempDiff = Math.abs(currentTemp - buffer.lastTemp);
-    if (tempDiff >= 1 || currentTemp > 38) {
+    if (tempDiff >= 1) {
       saveTriggered = true;
       buffer.lastTemp = currentTemp;
     }
@@ -47,8 +46,7 @@ async function handleIncubator(device, data, buffer) {
   }
   
   const now = Date.now();
-  // Simpan jika 5 menit ATAU kondisi suhu/kelembapan terpenuhi
-  if ((now - buffer.lastSave >= 300000) || saveTriggered) { 
+  if (saveTriggered) {
     if (buffer.temps.length > 0 || buffer.hums.length > 0) {
       
       const getStats = (arr) => {
@@ -68,17 +66,20 @@ async function handleIncubator(device, data, buffer) {
         temp: getStats(buffer.temps),
         hum: getStats(buffer.hums),
         samples: buffer.temps.length,
-        period: saveTriggered ? "drastic_change" : "5m"
+        reason: "drastic_change"
       };
 
       await pool.query('INSERT INTO device_logs (device_id, data) VALUES (?, ?)', 
         [device.device_id, JSON.stringify(summary)]);
       
-      console.log(`[Device ${device.device_id}] LOG SAVED TO DATABASE (${summary.period}):`, JSON.stringify(summary));
-    } else {
-      console.log(`[Device ${device.device_id}] Periodic save triggered, but no valid samples were collected.`);
+      console.log(`[Device ${device.device_id}] LOG SAVED (drastic change):`, JSON.stringify(summary));
     }
     
+    buffer.temps = [];
+    buffer.hums = [];
+    buffer.lastSave = now;
+  } else if (now - buffer.lastSave >= 300000) {
+    console.log(`[Device ${device.device_id}] No drastic change for 5 minutes. Discarding ${buffer.temps.length} samples.`);
     buffer.temps = [];
     buffer.hums = [];
     buffer.lastSave = now;
