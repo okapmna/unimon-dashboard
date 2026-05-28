@@ -17,8 +17,8 @@
     "ejs": "^5.0.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "jsonwebtoken": "^9.0.2",
     "mqtt": "^5.15.1",
-    "mysql2": "^3.22.3",
-    "jsonwebtoken": "^9.0.2"
+    "mysql2": "^3.22.3"
   }
 }
