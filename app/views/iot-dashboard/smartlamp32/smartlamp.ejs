@@ -1,32 +1,16 @@
 <%- include('../../partials/header') %>
 
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
     <div id="data-container"
-        data-broker-url="<%= device_data.broker_url %>"
-        data-broker-port="<%= device_data.broker_port %>"
-        data-mq-user="<%= device_data.mq_user %>"
-        data-mq-pass="<%= device_data.mq_pass %>"
-        data-topic-sub="<%= topic_sub %>"
-        data-topic-pub="<%= topic_pub %>"
+        data-device-id="<%= device_data.device_id %>"
         data-role="<%= role %>"
-        data-is-ssl="<%= (device_data.broker_port == 8883 || device_data.broker_port == 8884) ? 'true' : 'false' %>"
         style="display:none">
     </div>
 
     <script>
         const container = document.getElementById('data-container');
-        const mqttConfig = {
-            host: container.dataset.brokerUrl,
-            port: parseInt(container.dataset.brokerPort),
-            username: container.dataset.mqUser,
-            password: container.dataset.mqPass,
-            useSSL: container.dataset.isSsl === 'true',
-            topics: {
-                subscribe: { status: container.dataset.topicSub },
-                publish: { control: container.dataset.topicPub }
-            }
-        };
+        const deviceId = container.dataset.deviceId;
     </script>
 
     <style>
@@ -125,46 +109,34 @@
         let currentBrightness = 0;
         const isViewer = container.dataset.role === 'viewer';
 
-        // --- MQTT.js CONNECTION ---
-        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
-        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
-        const clientOptions = {
-            clientId: 'web_lamp_' + Math.random().toString(16).substr(2, 8),
-            username: mqttConfig.username,
-            password: mqttConfig.password,
-            reconnectPeriod: 3000,
-            keepalive: 30,
-            clean: true
-        };
+        // --- Socket.IO CONNECTION ---
+        const socket = io({
+            auth: {
+                username: '<%= username %>',
+                userId: '<%= userId %>'
+            }
+        });
 
-        const client = mqtt.connect(brokerUrl, clientOptions);
-
-        client.on('connect', () => {
+        socket.on('connect', () => {
             document.getElementById('status').innerText = 'Status: Connected (Online)';
             document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-green-500 uppercase tracking-tighter sm:tracking-widest';
-            client.subscribe(mqttConfig.topics.subscribe.status);
+            socket.emit('join-device', deviceId);
         });
 
-        client.on('reconnect', () => {
-            document.getElementById('status').innerText = 'Status: Reconnecting...';
-            document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-orange-500 uppercase tracking-tighter sm:tracking-widest';
-        });
-
-        client.on('close', () => {
+        socket.on('disconnect', () => {
             document.getElementById('status').innerText = 'Status: Disconnected!';
             document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-red-500 uppercase tracking-tighter sm:tracking-widest';
         });
 
-        client.on('error', (err) => {
-            console.error('MQTT Error:', err);
+        socket.on('connect_error', (err) => {
+            document.getElementById('status').innerText = 'Status: Connection Error';
+            document.getElementById('status').className = 'mt-2 sm:mt-4 text-[10px] sm:text-sm font-bold text-red-500 uppercase tracking-tighter sm:tracking-widest';
+            console.error('Socket Error:', err);
         });
 
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                if (data.power) updatePowerUI(data.power);
-                if (data.brightness !== undefined) updateBrightnessUI(data.brightness);
-            } catch(e) { console.error('Data error', e); }
+        socket.on('mqtt-message', ({ topic, data }) => {
+            if (data.power) updatePowerUI(data.power);
+            if (data.brightness !== undefined) updateBrightnessUI(data.brightness);
         });
 
         // --- UI & CONTROL LOGIC ---
@@ -225,13 +197,13 @@
         });
 
         function sendControl() {
-            if (client.connected) {
-                const payload = JSON.stringify({
+            socket.emit('device-control', {
+                deviceId,
+                command: {
                     power: currentPower,
                     brightness: parseInt(currentBrightness)
-                });
-                client.publish(mqttConfig.topics.publish.control, payload);
-            }
+                }
+            });
         }
     </script>
 <%- include('../../partials/footer') %>

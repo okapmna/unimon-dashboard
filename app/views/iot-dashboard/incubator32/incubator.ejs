@@ -1,12 +1,10 @@
 <%- include('../../partials/header') %>
 
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
-    <div id="data-container" data-broker-url="<%= device_data.broker_url %>"
-        data-broker-port="<%= device_data.broker_port %>" data-mq-user="<%= device_data.mq_user %>"
-        data-mq-pass="<%= device_data.mq_pass %>" data-topic-sub="<%= topic_sub %>" data-topic-pub="<%= topic_pub %>"
-        data-is-ssl="<%= (device_data.broker_port == 8883 || device_data.broker_port == 8884) ? 'true' : 'false' %>"
+    <div id="data-container"
+        data-device-id="<%= device_data.device_id %>"
         data-role="<%= role %>"
         data-chart-labels='<%- JSON.stringify(chart_labels) %>'
         data-chart-temp-avg='<%- JSON.stringify(chart_temp_avg) %>'
@@ -19,17 +17,7 @@
 
     <script>
         const container = document.getElementById('data-container');
-        const mqttConfig = {
-            host: container.dataset.brokerUrl,
-            port: parseInt(container.dataset.brokerPort),
-            username: container.dataset.mqUser,
-            password: container.dataset.mqPass,
-            useSSL: container.dataset.isSsl === 'true',
-            topics: {
-                subscribe: container.dataset.topicSub,
-                publish: container.dataset.topicPub
-            }
-        };
+        const deviceId = container.dataset.deviceId;
 
         const batchPresets = {
             chicken: { temp: 37.5, hum: 55, infoTemp: "Optimal: 37.2°C - 37.8°C", infoHum: "Optimal: 55% - 60%" },
@@ -497,106 +485,96 @@
         let currentInterval = null;
         let pendingInterval = 1;
 
-        // MQTT.js CONNECTION
-        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
-        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
-        const clientOptions = {
-            clientId: 'web_incubator_' + Math.random().toString(16).substr(2, 8),
-            username: mqttConfig.username,
-            password: mqttConfig.password,
-            reconnectPeriod: 3000,
-            keepalive: 30,
-            clean: true
-        };
+        // Socket.IO CONNECTION
+        const socket = io({
+            auth: {
+                username: '<%= username %>',
+                userId: '<%= userId %>'
+            }
+        });
 
-        const client = mqtt.connect(brokerUrl, clientOptions);
-
-        client.on('connect', () => {
+        socket.on('connect', () => {
             updateStatus('Connected (Online)', 'text-green-600');
-            client.subscribe(mqttConfig.topics.subscribe);
-            // Request data awal dari ESP32
-            client.publish(mqttConfig.topics.publish, 'dev_getinfo');
+            socket.emit('join-device', deviceId);
         });
 
-        client.on('reconnect', () => {
-            updateStatus('Reconnecting...', 'text-orange-500');
-        });
-
-        client.on('close', () => {
+        socket.on('disconnect', () => {
             updateStatus('Disconnected!', 'text-red-600');
         });
 
-        client.on('error', (err) => {
-            updateStatus('Connection Error', 'text-red-600');
-            console.error('MQTT Error:', err);
+        socket.on('joined', (id) => {
+            if (id === deviceId) {
+                socket.emit('request-info', deviceId);
+            }
         });
 
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
+        socket.on('connect_error', (err) => {
+            updateStatus('Connection Error', 'text-red-600');
+            console.error('Socket Error:', err.message);
+        });
 
-                if (data.temperature !== undefined) {
-                    document.getElementById('suhu').innerText = parseFloat(data.temperature).toFixed(2);
-                }
-                if (data.humidity !== undefined) {
-                    document.getElementById('kelembapan').innerText = parseFloat(data.humidity).toFixed(2);
-                }
-                if (data.target_temp !== undefined || data.t_temp !== undefined) {
-                    currentTargetTemp = parseFloat(data.target_temp || data.t_temp);
-                    document.getElementById('target-temp').innerText = currentTargetTemp.toFixed(1) + ' °C';
-                }
-                if (data.target_hum !== undefined || data.t_hum !== undefined) {
-                    currentTargetHum = parseFloat(data.target_hum || data.t_hum);
-                    document.getElementById('target-hum').innerText = Math.round(currentTargetHum) + '%';
-                }
-                if (data.target_fan !== undefined) {
-                    // Sinkronisasi target dengan status saat ini
-                    currentTargetFan = parseFloat(data.target_fan);
-                    document.getElementById('target-fan').innerText = currentTargetFan + '%';
-                }
+        socket.on('error', (msg) => {
+            console.error('Socket Error:', msg);
+        });
 
-                if (data.servo_mode !== undefined) {
-                    currentMode = parseInt(data.servo_mode);
-                    updateModeUI(currentMode);
+        socket.on('mqtt-message', ({ topic, data }) => {
+            if (data.temperature !== undefined) {
+                document.getElementById('suhu').innerText = parseFloat(data.temperature).toFixed(2);
+            }
+            if (data.humidity !== undefined) {
+                document.getElementById('kelembapan').innerText = parseFloat(data.humidity).toFixed(2);
+            }
+            if (data.target_temp !== undefined || data.t_temp !== undefined) {
+                currentTargetTemp = parseFloat(data.target_temp || data.t_temp);
+                document.getElementById('target-temp').innerText = currentTargetTemp.toFixed(1) + ' °C';
+            }
+            if (data.target_hum !== undefined || data.t_hum !== undefined) {
+                currentTargetHum = parseFloat(data.target_hum || data.t_hum);
+                document.getElementById('target-hum').innerText = Math.round(currentTargetHum) + '%';
+            }
+            if (data.target_fan !== undefined) {
+                currentTargetFan = parseFloat(data.target_fan);
+                document.getElementById('target-fan').innerText = currentTargetFan + '%';
+            }
+
+            if (data.servo_mode !== undefined) {
+                currentMode = parseInt(data.servo_mode);
+                updateModeUI(currentMode);
+            }
+            if (data.servo_interval !== undefined) {
+                currentInterval = parseInt(data.servo_interval);
+                updateIntervalUI(currentInterval);
+                pendingInterval = currentInterval;
+            }
+
+            // Append live data to chart every 1 minute
+            if (Date.now() - lastChartUpdate >= 60000 && data.temperature !== undefined && data.humidity !== undefined) {
+                const timeNow = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+                const liveTemp = parseFloat(data.temperature).toFixed(2);
+                const liveHum = parseFloat(data.humidity).toFixed(2);
+
+                tempChart.data.labels.push(timeNow);
+                tempChart.data.datasets[0].data.push(liveTemp);
+                tempChart.data.datasets[1].data.push(liveTemp);
+                tempChart.data.datasets[2].data.push(liveTemp);
+                if (tempChart.data.labels.length > 15) {
+                    tempChart.data.labels.shift();
+                    tempChart.data.datasets.forEach(ds => ds.data.shift());
                 }
-                if (data.servo_interval !== undefined) {
-                    currentInterval = parseInt(data.servo_interval);
-                    updateIntervalUI(currentInterval);
-                    pendingInterval = currentInterval;
+                tempChart.update('none');
+
+                humChart.data.labels.push(timeNow);
+                humChart.data.datasets[0].data.push(liveHum);
+                humChart.data.datasets[1].data.push(liveHum);
+                humChart.data.datasets[2].data.push(liveHum);
+                if (humChart.data.labels.length > 15) {
+                    humChart.data.labels.shift();
+                    humChart.data.datasets.forEach(ds => ds.data.shift());
                 }
+                humChart.update('none');
 
-                // Append live data to chart every 1 minute
-                if (Date.now() - lastChartUpdate >= 60000 && data.temperature !== undefined && data.humidity !== undefined) {
-                    const timeNow = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-                    const liveTemp = parseFloat(data.temperature).toFixed(2);
-                    const liveHum = parseFloat(data.humidity).toFixed(2);
-
-                    // Update Temp Chart (Add current live data to all lines for realism)
-                    tempChart.data.labels.push(timeNow);
-                    tempChart.data.datasets[0].data.push(liveTemp); // High
-                    tempChart.data.datasets[1].data.push(liveTemp); // Avg
-                    tempChart.data.datasets[2].data.push(liveTemp); // Low
-                    if (tempChart.data.labels.length > 15) {
-                        tempChart.data.labels.shift();
-                        tempChart.data.datasets.forEach(ds => ds.data.shift());
-                    }
-                    tempChart.update('none');
-
-                    // Update Hum Chart
-                    humChart.data.labels.push(timeNow);
-                    humChart.data.datasets[0].data.push(liveHum); // High
-                    humChart.data.datasets[1].data.push(liveHum); // Avg
-                    humChart.data.datasets[2].data.push(liveHum); // Low
-                    if (humChart.data.labels.length > 15) {
-                        humChart.data.labels.shift();
-                        humChart.data.datasets.forEach(ds => ds.data.shift());
-                    }
-                    humChart.update('none');
-
-                    lastChartUpdate = Date.now();
-                }
-
-            } catch (e) { console.warn('Parsing Error:', e); }
+                lastChartUpdate = Date.now();
+            }
         });
 
         function updateTarget(type, change) {
@@ -625,10 +603,10 @@
         }
 
         function sendTargetData() {
-            if (client.connected) {
-                const payload = JSON.stringify({ target_temp: currentTargetTemp, target_hum: currentTargetHum, target_fan: currentTargetFan });
-                client.publish(mqttConfig.topics.publish, payload);
-            }
+            socket.emit('device-control', {
+                deviceId,
+                command: { target_temp: currentTargetTemp, target_hum: currentTargetHum, target_fan: currentTargetFan }
+            });
         }
 
         function updateStatus(text, colorClass) {
@@ -668,9 +646,11 @@
 
         // --- SERVO FUNCTIONS ---
         function setServoMode(mode) {
-            if (isViewer || !client.connected) return;
-            const payload = JSON.stringify({ servo_mode: mode });
-            client.publish(mqttConfig.topics.publish, payload);
+            if (isViewer) return;
+            socket.emit('device-control', {
+                deviceId,
+                command: { servo_mode: mode }
+            });
             currentMode = mode;
             updateModeUI(mode);
             showToast('Mengubah mode ke ' + (mode === 0 ? 'JADWAL' : 'SWING'));
@@ -683,9 +663,11 @@
         }
 
         function applyInterval() {
-            if (isViewer || !client.connected) return;
-            const payload = JSON.stringify({ servo_interval: pendingInterval });
-            client.publish(mqttConfig.topics.publish, payload);
+            if (isViewer) return;
+            socket.emit('device-control', {
+                deviceId,
+                command: { servo_interval: pendingInterval }
+            });
             currentInterval = pendingInterval;
             updateIntervalUI(currentInterval);
             showToast('Interval diubah ke ' + pendingInterval + ' jam');
