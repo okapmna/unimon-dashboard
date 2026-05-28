@@ -20,11 +20,9 @@ router.delete('/devices/:id/share/:userId', checkWebAuth, DeviceController.unsha
 router.get('/devices/:id/users', checkWebAuth, DeviceController.getDeviceUsers);
 
 // Dynamic Device Routing
-router.get('/device/:id/:view?', checkWebAuth, async (req, res) => {
+async function renderDeviceView(req, res, viewName) {
     try {
         const device_id = req.params.id;
-        const viewName = req.params.view || 'main';
-
         const [rows] = await pool.query(`
             SELECT d.*, du.role
             FROM device d
@@ -53,7 +51,10 @@ router.get('/device/:id/:view?', checkWebAuth, async (req, res) => {
     } catch (e) {
         res.redirect('/dashboard');
     }
-});
+}
+
+router.get('/device/:id', checkWebAuth, (req, res) => renderDeviceView(req, res, 'main'));
+router.get('/device/:id/:view', checkWebAuth, (req, res) => renderDeviceView(req, res, req.params.view));
 
 router.get('/profile', checkWebAuth, (req, res) => {
     res.render('profile', {
