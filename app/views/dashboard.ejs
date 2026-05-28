@@ -70,8 +70,9 @@
                 </button>
                 <div class="filter-dropdown-menu" id="filterTypeMenu">
                     <button onclick="selectFilterType('', 'Semua Tipe', this)" class="active">Semua Tipe</button>
-                    <button onclick="selectFilterType('inkubator', 'Inkubator', this)">Inkubator</button>
-                    <button onclick="selectFilterType('smartlamp', 'Smart Lamp', this)">Smart Lamp</button>
+                    <% (deviceTypeFilters || []).forEach(f => { %>
+                    <button onclick="selectFilterType('<%= f.type %>', '<%= f.label %>', this)"><%= f.label %></button>
+                    <% }) %>
                 </div>
             </div>
         </div>
@@ -86,7 +87,7 @@
                     <% const current_icon = device.current_icon; %>
                     <% const badge_color = device.badge_color; %>
 
-                    <div class="device-card group relative bg-card-white rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:shadow-gray-200/80 transition-all duration-300 border border-transparent hover:border-accent-green/20 transform hover:-translate-y-1" data-name="<%= displayName.toLowerCase() %>" data-type="<%= (device.device_type.includes('inkubator') ? 'inkubator' : device.device_type.includes('lamp') ? 'smartlamp' : 'other') %>">
+                    <div class="device-card group relative bg-card-white rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:shadow-gray-200/80 transition-all duration-300 border border-transparent hover:border-accent-green/20 transform hover:-translate-y-1" data-name="<%= displayName.toLowerCase() %>" data-type="<%= device.filterType %>">
 
                         <div class="absolute top-3 right-3 sm:top-6 sm:right-6 z-20">
                             <button type="button" onclick="toggleDeviceMenu(event, 'menu-<%= id_val %>')" class="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-dark-text hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent-green/50" aria-label="Device Options">
@@ -206,8 +207,9 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Tipe Device</label>
                             <select name="device_type" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-accent-green focus:ring-accent-green sm:text-sm py-3 px-4 bg-gray-50" required>
                                 <option value="" disabled selected>-- Pilih Tipe --</option>
-                                <option value="esp32-inkubator">esp32-inkubator</option>
-                                <option value="esp32-smartlamp">esp32-smartlamp</option>
+                                <% (deviceTypeOptions || []).forEach(o => { %>
+                                <option value="<%= o.value %>"><%= o.label %></option>
+                                <% }) %>
                             </select>
                         </div>
                         <div>
@@ -256,8 +258,9 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Tipe Device</label>
                             <select name="edit_device_type" id="edit_device_type" class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 px-4 bg-gray-50" required>
-                                <option value="esp32-inkubator">esp32-inkubator</option>
-                                <option value="esp32-smartlamp">esp32-smartlamp</option>
+                                <% (deviceTypeOptions || []).forEach(o => { %>
+                                <option value="<%= o.value %>"><%= o.label %></option>
+                                <% }) %>
                             </select>
                         </div>
                         <div>

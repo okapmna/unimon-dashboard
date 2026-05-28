@@ -1,5 +1,6 @@
 const pool = require('../src/config/db');
 const deviceManager = require('../src/services/DeviceManager');
+const { getDashboardConfig, matchDeviceConfig, getDeviceTypesForFilter, getDeviceTypeOptions } = require('../src/device-types/registry');
 
 class DeviceController {
     async getDashboard(req, res) {
@@ -14,28 +15,19 @@ class DeviceController {
             `, [req.session.username]);
 
             const processedDevices = devices.map(device => {
-                let link = '#';
-                let badge_color = 'bg-gray-100 text-gray-600';
-                let current_icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><path d="M12 2v20"/><path d="M2 12h20"/></svg>';
-                
-                if (device.device_type.includes('inkubator')) {
-                    link = '/incubator/' + device.device_id;
-                    current_icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent-brown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9a4 4 0 0 0-2 7.5M12 3v2M6.6 18.4l-1.4 1.4M18.8 4.2l-1.4 1.4M2 12h2M20 12h2M6.6 5.6l-1.4-1.4M18.8 19.8l-1.4-1.4"/></svg>';
-                    badge_color = 'bg-[#FFF8EC] text-accent-brown border border-accent-brown/20';
-                } else if (device.device_type.includes('lamp')) {
-                    link = '/smartlamp/' + device.device_id;
-                    current_icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 16.5 8 4.5 4.5 0 0 0 12 3.5 4.5 4.5 0 0 0 7.5 8c0 1.5.81 2.82 2 3.5.76.76 1.23 1.52 1.41 2.5"/></svg>';
-                    badge_color = 'bg-blue-50 text-accent-blue border border-accent-blue/20';
-                }
+                const dashConfig = getDashboardConfig(device);
+                const typeConfig = matchDeviceConfig(device.device_type);
+                const fallbackIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><path d="M12 2v20"/><path d="M2 12h20"/></svg>';
 
                 return {
                     ...device,
                     id_val: device.device_id,
                     primary_key: 'device_id',
                     displayName: device.device_name || device.device_type,
-                    link,
-                    badge_color,
-                    current_icon
+                    link: dashConfig ? dashConfig.link : '#',
+                    badge_color: dashConfig ? dashConfig.badge_color : 'bg-gray-100 text-gray-600',
+                    current_icon: dashConfig ? dashConfig.icon : fallbackIcon,
+                    filterType: typeConfig ? typeConfig.filterType : 'other',
                 };
             });
 
@@ -43,7 +35,9 @@ class DeviceController {
                 page_title: 'UNIMQ - Dashboard',
                 body_class: 'bg-cream-bg text-dark-text min-h-screen font-sans selection:bg-accent-green selection:text-white pb-20',
                 username: req.session.username,
-                devices: processedDevices
+                devices: processedDevices,
+                deviceTypeFilters: getDeviceTypesForFilter(),
+                deviceTypeOptions: getDeviceTypeOptions(),
             });
         } catch (e) {
             console.error(e);

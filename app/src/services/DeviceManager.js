@@ -1,12 +1,20 @@
 const mqtt = require('mqtt');
 const pool = require('../config/db');
+const eventBus = require('./eventBus');
+const { matchDeviceConfig, getTopicConfig } = require('../device-types/registry');
 const { handleIncubator } = require('../handlers/incubator');
 const { handleSmartlamp } = require('../handlers/smartlamp');
+
+const handlerMap = {
+  incubator: handleIncubator,
+  smartlamp: handleSmartlamp,
+};
 
 class DeviceManager {
   constructor() {
     this.mqttClients = {};
     this.deviceBuffers = {};
+    this.deviceInfo = {};
   }
 
   async syncDevices() {
@@ -47,6 +55,7 @@ class DeviceManager {
     });
 
     this.mqttClients[device.device_id] = client;
+    this.deviceInfo[device.device_id] = device;
     this.deviceBuffers[device.device_id] = {
       type: device.device_type,
       temps: [],
@@ -58,14 +67,10 @@ class DeviceManager {
     client.on('connect', () => {
       console.log(`[Device ${device.device_id}] CONNECTED! Waiting for messages...`);
       
-      if (device.device_type.includes('incubator') || device.device_type.includes('inkubator')) {
-        const topic = `incubator/${device.device_id}/data`;
-        client.subscribe(topic);
-        console.log(`[Device ${device.device_id}] Subscribed to: ${topic}`);
-      } else if (device.device_type.includes('smartlamp')) {
-        const topic = `smartlamp/${device.device_id}/status`;
-        client.subscribe(topic);
-        console.log(`[Device ${device.device_id}] Subscribed to: ${topic}`);
+      const topicConfig = getTopicConfig(device);
+      if (topicConfig) {
+        client.subscribe(topicConfig.subscribe);
+        console.log(`[Device ${device.device_id}] Subscribed to: ${topicConfig.subscribe}`);
       }
     });
 
@@ -78,10 +83,17 @@ class DeviceManager {
         const buffer = this.deviceBuffers[device.device_id];
         if (!buffer) return;
 
-        if (buffer.type.includes('incubator') || buffer.type.includes('inkubator')) {
-          await handleIncubator(device, data, buffer);
-        } else if (buffer.type.includes('smartlamp')) {
-          await handleSmartlamp(device, data, buffer);
+        // Broadcast to Socket.IO clients via event bus
+        eventBus.emit('device-data', {
+          deviceId: device.device_id,
+          topic,
+          data
+        });
+
+        const handlerConfig = matchDeviceConfig(device.device_type);
+        const handler = handlerConfig ? handlerMap[handlerConfig.key] : null;
+        if (handler) {
+          await handler(device, data, buffer);
         }
       } catch (e) {
         console.error(`[Device ${device.device_id}] JSON Parse/Process Error:`, e.message);
@@ -95,6 +107,20 @@ class DeviceManager {
     });
   }
   
+  publish(deviceId, payload) {
+    const client = this.mqttClients[deviceId];
+    const device = this.deviceInfo[deviceId];
+    if (!client || !client.connected || !device) return false;
+
+    const topicConfig = getTopicConfig(device);
+    if (!topicConfig) return false;
+
+    const msg = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    client.publish(topicConfig.publish, msg);
+    console.log(`[Device ${deviceId}] Published to [${topicConfig.publish}]: ${msg}`);
+    return true;
+  }
+
   gracefulShutdown() {
     console.log('[System] Shutting down MQTT clients...');
     for (const id in this.mqttClients) {

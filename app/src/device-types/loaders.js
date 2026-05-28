@@ -1,0 +1,57 @@
+const pool = require('../config/db');
+const { matchDeviceConfig } = require('./registry');
+
+const loaders = {
+  incubator: async (deviceId) => {
+    const [logs] = await pool.query(
+      "SELECT data, created_at FROM device_logs WHERE device_id = ? ORDER BY created_at DESC LIMIT 15",
+      [deviceId]
+    );
+
+    const chart_labels = [];
+    const chart_temp_avg = [];
+    const chart_temp_high = [];
+    const chart_temp_low = [];
+    const chart_hum_avg = [];
+    const chart_hum_high = [];
+    const chart_hum_low = [];
+
+    logs.forEach(row => {
+      try {
+        const data = JSON.parse(row.data);
+        if (data.temp && data.temp.avg !== undefined) {
+          chart_labels.push(row.created_at);
+          chart_temp_avg.push(data.temp.avg);
+          chart_temp_high.push(data.temp.high);
+          chart_temp_low.push(data.temp.low);
+          chart_hum_avg.push(data.hum.avg);
+          chart_hum_high.push(data.hum.high);
+          chart_hum_low.push(data.hum.low);
+        }
+      } catch (e) {}
+    });
+
+    return {
+      chart_labels: chart_labels.reverse(),
+      chart_temp_avg: chart_temp_avg.reverse(),
+      chart_temp_high: chart_temp_high.reverse(),
+      chart_temp_low: chart_temp_low.reverse(),
+      chart_hum_avg: chart_hum_avg.reverse(),
+      chart_hum_high: chart_hum_high.reverse(),
+      chart_hum_low: chart_hum_low.reverse(),
+    };
+  },
+  smartlamp: async (deviceId) => {
+    return {};
+  },
+};
+
+async function loadDeviceViewData(device) {
+  const config = matchDeviceConfig(device.device_type);
+  if (!config) return {};
+  const loader = loaders[config.key];
+  if (!loader) return {};
+  return loader(device.device_id);
+}
+
+module.exports = { loadDeviceViewData, loaders };

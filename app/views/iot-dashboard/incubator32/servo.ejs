@@ -1,14 +1,11 @@
 <%- include('../../partials/header') %>
 
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
-    <div id="data-container" data-broker-url="<%= device_data.broker_url %>"
-        data-broker-port="<%= device_data.broker_port %>" data-mq-user="<%= device_data.mq_user %>"
-        data-mq-pass="<%= device_data.mq_pass %>" data-topic-sub="<%= topic_sub %>" data-topic-pub="<%= topic_pub %>"
-        data-is-ssl="<%= (device_data.broker_port == 8883 || device_data.broker_port == 8884) ? 'true' : 'false' %>"
+    <div id="data-container"
+        data-device-id="<%= device_data.device_id %>"
         data-role="<%= role %>"
-        data-device-name="<%= device_data.device_name %>"
-        data-incubator-id="<%= device_data.device_id %>" style="display:none">
+        data-device-name="<%= device_data.device_name %>" style="display:none">
     </div>
 
     <style>
@@ -56,7 +53,7 @@
     </style>
 
     <div class="back-btn">
-        <a href="/incubator/<%= device_data.device_id %>">
+        <a href="/device/<%= device_data.device_id %>">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18">
                 </path>
@@ -162,18 +159,7 @@
 
     <script>
         const container = document.getElementById('data-container');
-        const mqttConfig = {
-            host: container.dataset.brokerUrl,
-            port: parseInt(container.dataset.brokerPort),
-            username: container.dataset.mqUser,
-            password: container.dataset.mqPass,
-            useSSL: container.dataset.isSsl === 'true',
-            topics: {
-                subscribe: container.dataset.topicSub,
-                publish: container.dataset.topicPub
-            }
-        };
-
+        const deviceId = container.dataset.deviceId;
         const userRole = container.dataset.role;
         const isViewer = userRole === 'viewer';
 
@@ -192,56 +178,51 @@
             }
         }
 
-        const protocol = mqttConfig.useSSL ? 'wss' : 'ws';
-        const brokerUrl = `${protocol}://${mqttConfig.host}:${mqttConfig.port}/mqtt`;
-        const clientOptions = {
-            clientId: 'web_servo_' + Math.random().toString(16).substr(2, 8),
-            username: mqttConfig.username,
-            password: mqttConfig.password,
-            reconnectPeriod: 3000,
-            keepalive: 30,
-            clean: true
-        };
+        // Socket.IO CONNECTION
+        const socket = io({
+            auth: {
+                username: '<%= username %>',
+                userId: '<%= userId %>'
+            }
+        });
 
-        const client = mqtt.connect(brokerUrl, clientOptions);
-
-        client.on('connect', () => {
+        socket.on('connect', () => {
             updateStatus('Connected (Online)', 'text-green-600');
-            client.subscribe(mqttConfig.topics.subscribe);
-            client.publish(mqttConfig.topics.publish, 'dev_getinfo');
+            socket.emit('join-device', deviceId);
         });
 
-        client.on('reconnect', () => {
-            updateStatus('Reconnecting...', 'text-orange-500');
-        });
-
-        client.on('close', () => {
+        socket.on('disconnect', () => {
             updateStatus('Disconnected!', 'text-red-600');
         });
 
-        client.on('error', (err) => {
+        socket.on('joined', (id) => {
+            if (id === deviceId) {
+                socket.emit('request-info', deviceId);
+            }
+        });
+
+        socket.on('connect_error', (err) => {
             updateStatus('Connection Error', 'text-red-600');
         });
 
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                if (data.servo_mode !== undefined) {
-                    currentMode = parseInt(data.servo_mode);
-                    updateModeUI(currentMode);
-                }
-                if (data.servo_interval !== undefined) {
-                    currentInterval = parseInt(data.servo_interval);
-                    updateIntervalUI(currentInterval);
-                    pendingInterval = currentInterval;
-                }
-            } catch (e) {}
+        socket.on('mqtt-message', ({ topic, data }) => {
+            if (data.servo_mode !== undefined) {
+                currentMode = parseInt(data.servo_mode);
+                updateModeUI(currentMode);
+            }
+            if (data.servo_interval !== undefined) {
+                currentInterval = parseInt(data.servo_interval);
+                updateIntervalUI(currentInterval);
+                pendingInterval = currentInterval;
+            }
         });
 
         function setServoMode(mode) {
-            if (isViewer || !client.connected) return;
-            const payload = JSON.stringify({ servo_mode: mode });
-            client.publish(mqttConfig.topics.publish, payload);
+            if (isViewer) return;
+            socket.emit('device-control', {
+                deviceId,
+                command: { servo_mode: mode }
+            });
             currentMode = mode;
             updateModeUI(mode);
             showToast('Mengubah mode ke ' + (mode === 0 ? 'JADWAL' : 'SWING'));
@@ -254,9 +235,11 @@
         }
 
         function applyInterval() {
-            if (isViewer || !client.connected) return;
-            const payload = JSON.stringify({ servo_interval: pendingInterval });
-            client.publish(mqttConfig.topics.publish, payload);
+            if (isViewer) return;
+            socket.emit('device-control', {
+                deviceId,
+                command: { servo_interval: pendingInterval }
+            });
             currentInterval = pendingInterval;
             updateIntervalUI(currentInterval);
             showToast('Interval diubah ke ' + pendingInterval + ' jam');
