@@ -9,7 +9,8 @@ services:
     env_file:
       - ./app/.env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -25,6 +26,12 @@ services:
       MYSQL_DATABASE: unimq
       MYSQL_USER: user_app
       MYSQL_PASSWORD: password_app
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - db_data:/var/lib/mysql
     networks:
