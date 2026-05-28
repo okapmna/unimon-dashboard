@@ -46,6 +46,10 @@ To view the application and MQTT worker activity in real-time, use the following
 docker logs -f unimon_app
 ```
 
+## Adding a New Device Type
+
+See [NEW_DEVICE_TYPE_GUIDE.md](NEW_DEVICE_TYPE_GUIDE.md) for step-by-step instructions on how to add support for new device types (e.g., thermostat, sensor, actuator) to the dashboard.
+
 ## Preview
 
 <img width="1587" alt="Main Dashboard" src="preview/main_dashbboard.png" />
